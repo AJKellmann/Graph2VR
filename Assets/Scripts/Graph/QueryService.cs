@@ -153,7 +153,7 @@ public class QueryService : MonoBehaviour
           Select {variable} <http://graph2vr.org/image> AS ?graph2vrimage sample(?image) as ?image
           where {{
             {variable} ({imagePredicates}) ?image .
-            FILTER( strStarts( STR(?image), 'http://' ) || strStarts( STR(?image), 'https://' ) ) .
+            FILTER( !isLiteral(?image) ).
           }}
         }}
 
