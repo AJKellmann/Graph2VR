@@ -215,20 +215,36 @@ public class Node : MonoBehaviour
     {
       switch (edge.displayObject.uri)
       {
-        case "http://www.w3.org/2002/07/owl#Thing":
-          SetColor(Settings.Instance.nodeOwlClassColor);
+        case "http://www.w3.org/2002/07/owl#deprecated":
+          SetColor(Settings.Instance.deprecatedColor);
           return true;
         case "http://www.w3.org/2002/07/owl#Class":
           SetColor(Settings.Instance.nodeOwlClassColor);
+          Debug.Log("I was here 1");
           return true;
-        case "https://www.w3.org/1999/02/22-rdf-syntax-ns#subClassOf":
-          SetColor(Settings.Instance.arrowheadSubclassOfColor);
+        case "http://www.w3.org/2000/01/rdf-schema#Class":
+          SetColor(Settings.Instance.nodeRdfsClassColor);
           return true;
         case "https://www.w3.org/1999/02/22-rdf-syntax-ns#Property":
-          SetColor(Settings.Instance.nodeRdfsClassColor);
+          SetColor(Settings.Instance.nodeOwlDatatypeColor);
           return true;
       }
     }
+
+     nodeTypes = graph.edgeList.FindAll(
+      edge => (edge.displaySubject == this || edge.displayObject == this) && (
+      edge.uri == "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+    );
+    foreach (Edge edge in nodeTypes)
+    {
+      if (uri == "http://www.w3.org/2002/07/owl#Thing")
+      {
+        SetColor(Settings.Instance.nodeOwlClassColor);
+      }
+      else {SetColor(Settings.Instance.nodeRdfsClassColor);}
+      return true;
+    }
+ 
     return false;
   }
 
@@ -254,7 +270,12 @@ public class Node : MonoBehaviour
           break;
         case NodeType.Uri:
           uri = ((IUriNode)graphNode).Uri.OriginalString;
-          SetColor(ColorSettings.instance.uriColor);
+          if (uri == "http://www.w3.org/2002/07/owl#Thing")
+          {
+            SetColor(Settings.Instance.nodeOwlClassColor);
+            Debug.Log("I found owl:thing");
+          }
+          else SetColor(ColorSettings.instance.uriColor);
           break;
       }
     }

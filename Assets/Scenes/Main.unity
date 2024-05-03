@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.0055015082, g: 0.022027984, b: 0.045998562, a: 1}
+  m_IndirectSpecularColor: {r: 0.005506694, g: 0.022075854, b: 0.04601198, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -7257,8 +7257,8 @@ MonoBehaviour:
   - http://www.w3.org/1999/02/22-rdf-syntax-ns#type
   - http://www.w3.org/2000/01/rdf-schema#label
   literalColor: {r: 1, g: 0.8, b: 0.2, a: 1}
-  nodeOwlClassColor: {r: 0.6666667, g: 0.8, b: 1, a: 0}
-  nodeRdfsClassColor: {r: 0.8, g: 0.6, b: 0.8, a: 0}
+  nodeOwlClassColor: {r: 0.8, g: 0.6, b: 0.8, a: 0}
+  nodeRdfsClassColor: {r: 0.6666667, g: 0.8, b: 1, a: 0}
   nodeOwlDatatypeColor: {r: 0.6, g: 0.8, b: 0.4, a: 0}
   deprecatedColor: {r: 204, g: 204, b: 204, a: 1}
   arrowheadSubclassOfColor: {r: 1, g: 1, b: 1, a: 1}

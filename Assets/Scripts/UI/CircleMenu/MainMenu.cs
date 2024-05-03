@@ -78,7 +78,7 @@ public class MainMenu : BaseMenu
 
   private void PopulateBaseMainMenu()
   {
-    cm.AddButton(Icon("\uF021") + "Reset Graph2VR DEMO - Mountain", Color.red, () =>
+    cm.AddButton(Icon("\uF021") + "Reset Graph2VR DEMO", Color.red, () =>
     {
       foreach (GameObject gameObject in FindObjectsOfType<GameObject>())
       {

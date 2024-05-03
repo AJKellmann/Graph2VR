@@ -119,7 +119,7 @@ public class QueryService : MonoBehaviour
         construct {{
             ?subject <{uri}> {value} .
             ?subject ?graph2vrlabel ?label .
-            ?subject ?graph2vrimage ?image .
+            ?subject ?graph2vrimage  ?image .
             ?subject a ?type .
         }} where {{
             ?subject <{uri}> {value}
@@ -132,7 +132,6 @@ public class QueryService : MonoBehaviour
   private string GetOptionalGraphQuery(string variable)
   {
     string imagePredicates = "";
-
     bool isFirstPredicate = true;
     foreach (string predicate in Settings.Instance.imagePredicates)
     {
@@ -153,7 +152,7 @@ public class QueryService : MonoBehaviour
           Select {variable} <http://graph2vr.org/image> AS ?graph2vrimage sample(?image) as ?image
           where {{
             {variable} ({imagePredicates}) ?image .
-            FILTER( !isLiteral(?image) ).
+            FILTER( strStarts( STR(?image), 'http://' ) || strStarts( STR(?image), 'https://' ) || strStarts( STR(?image), 'file://') || strStarts( STR(?image), 'ftp://')).
           }}
         }}
 
