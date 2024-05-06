@@ -83,14 +83,9 @@ However, it supported us in building a standalone version of the application for
 
 ## License Information
 
-**Unity Educational License**: Graph2VR was developed under an Educational License from Unity, intended only for non-commercial, educational use. 
-
 **GNU Lesser General Public License v3.0 (LGPL-v3)**: The source code created by our team is licensed under LGPL-v3, which permits use, modification, and distribution, including for commercial purposes, as long as changes to our code are also shared under LGPL-v3. The LGPL-v3 does not apply to third-party components, which may have their own licenses.
 
-**Commercial Use**: If you plan to use Graph2VR commercially, ensure compliance with all relevant licenses, including obtaining a commercial Unity license if applicable.
-
-**As-Is**: This software is a late alpha version and is provided "as is" without warranty of any kind.
+**As-Is**: This software is provided "as is" without warranty of any kind. 
+Please check the issues pages for known bugs and missing features.
 
 For more details, see the `LICENSE` file in this repository.
-
-
