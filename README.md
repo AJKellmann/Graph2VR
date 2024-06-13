@@ -63,9 +63,11 @@ We did not explicitly implement support for other servers, although DotNetRDF do
 
 A Virtuoso can for example be set up via Docker through the Docker GUI or by using the following commands:
 
+```
 docker pull tenforce/virtuoso
 docker build -t virtuoso .
 docker run -p 8890:8890 -p 1111:1111 --name virtuoso -d virtuoso
+```
 
 The SPARQL Endpoint can be reached at the selected port, in this case at [localhost:8890/sparql](http://localhost:8890/sparql). 
 The web interface to configure the server can be found at [localhost:8890/conductor](http://localhost:8890/conductor). 
