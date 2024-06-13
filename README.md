@@ -1,6 +1,6 @@
 # Graph2VR
 
-Graph2VR is a PhD project, a prototype for a VR application to visualize graphs (SPARQL) as 3D graphs in Virtual Reality. The idea is to explore, analyze, and interact with the data in the graph using gesture control. Graph2VR has been built in Unity and is able to connect to a SPARQL endpoint using [dotNetRDF](https://dotnetrdf.org/). We got inspired by many different tools to work with Linked data and to visualize Graphs. Virtual Reality offers the user way more space to expand the graph than a 2D computer screen.
+Graph2VR is a PhD project, a prototype for a VR application to visualize graphs (SPARQL), as 3D graphs in Virtual Reality. The idea is to explore, analyze, and interact with the data in the graph using gesture control. Graph2VR has been built in Unity and is able to connect to a SPARQL endpoint using [dotNetRDF](https://dotnetrdf.org/). We got inspired by many different tools to work with Linked data and to visualize Graphs. Virtual Reality offers the user way more space to expand the graph than a 2D computer screen.
 
 ## Documentation
 
@@ -51,8 +51,8 @@ For the **Windows Version**:
 - Download the `Graph2VR_windows.zip` file from the [latest release](https://github.com/molgenis/Graph2VR/releases), unzip it, and execute the application.
 
 For the **Quest 2/3 Standalone Version**:
-- Ensure your Oculus Quest 2 or Quest 3 is in [developer mode](https://developer.oculus.com/documentation/native/android/mobile-device-setup/) to install the standalone version via SideQuest.
-- We recommend [SideQuest](https://sidequestvr.com/download) for loading the application onto the Quest2/3 VR headset. When uploading the `.apk` file to the Quest headset, Graph2VR is in a category called "Unknown Sources applications" within the applications menu.
+- Ensure your Oculus Quest 2 or Quest 3 is in [developer mode](https://developer.oculus.com/documentation/native/android/mobile-device-setup/) for installing the standalone version via SideQuest.
+- We recommend [SideQuest](https://sidequestvr.com/download) for loading the application onto the Quest2/3 VR headset. When the .apk file is uploaded to the Quest headset, Graph2VR will appear under 'Unknown Sources' in the applications menu.
 
 ### Setting up a local Virtuoso Server using Docker 
 
@@ -93,7 +93,7 @@ This path is created once a savestate is made.
 You can find a sample settings.txt [here](https://github.com/molgenis/Graph2VR/releases/download/1.2.3/Settings.txt).
 
 To access a specific SPARQL Endpoint, the `Virtuoso.ini` can be used to specify the server, the graph within the server and a starting query.
-Note, that only CONSTRUCT queries can be used as initial queries, andd they need to be JSON-encoded.
+Note that only CONSTRUCT queries can be used as initial queries, and they need to be JSON-encoded
 While certain functionalities (such as BIND, MINUS, or subqueries) are not yet implemented as options within Graph2VR's GUI, these can still be used within the initial query.
 
 ## System Requirements
