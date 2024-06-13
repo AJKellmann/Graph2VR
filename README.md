@@ -125,4 +125,4 @@ The binaries of Graph2VR provided on this website were developed using an Educat
 **As-Is**: This software is provided "as is" without warranty of any kind. 
 Please check the issues pages for known bugs and missing features.
 
-For more details, see the `LICENSE` file in this repository.
+For more details, see the [LICENSE file](https://github.com/molgenis/Graph2VR/blob/master/LICENSE) in this repository.
