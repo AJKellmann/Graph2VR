@@ -93,7 +93,6 @@ The file can be placed next to the Graph2VR.exe for the Windows version.
 For the Quest 2/3 version, the settings.txt can be placed in the folder 'sdcard/Android/data/com.Graph2VR.Graph2VR/files'.
 This path is created once a savestate is made.
 - For Graph2VR versions 1.23 - 1.26, you can find a sample `settings.txt` [here](https://github.com/molgenis/Graph2VR/releases/download/1.2.3/Settings.txt).
-- For Graph2VR version 1.27 and above, you can find a sample `settings.txt` [here](https://github.com/molgenis/Graph2VR/releases/download/1.2.7/Settings.txt).
 
 To access a specific SPARQL Endpoint, the `Virtuoso.ini` can be used to specify the server, the graph within the server and a starting query.
 Note that only CONSTRUCT queries can be used as initial queries, and they need to be JSON-encoded
