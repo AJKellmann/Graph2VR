@@ -17,6 +17,15 @@ namespace Dweiss
     public string label = "";
     public string sparqlEndpoint = "https://dbpedia.org/sparql";
     public string baseURI = "http://dbpedia.org"; //"https://github.com/PjotrSvetachov/GraphVR/example-graph";
+    public string providerType = "GenericSparql";
+    public string updateEndpoint = "";
+    public string graphStoreEndpoint = "";
+    public string repositoryId = "";
+    public string catalogId = "";
+    public string username = "";
+    public string password = "";
+    public int timeoutMilliseconds = 0;
+    public bool preferJsonResults = false;
     public bool databaseSupportsBifContains = false;
     public bool searchOnKeypress = false;
   }
@@ -38,6 +47,15 @@ namespace Dweiss
 
     public string sparqlEndpoint = "https://dbpedia.org/sparql";
     public string baseURI = "http://dbpedia.org"; //"https://github.com/PjotrSvetachov/GraphVR/example-graph";
+    public string providerType = "GenericSparql";
+    public string updateEndpoint = "";
+    public string graphStoreEndpoint = "";
+    public string repositoryId = "";
+    public string catalogId = "";
+    public string username = "";
+    public string password = "";
+    public int timeoutMilliseconds = 0;
+    public bool preferJsonResults = false;
     public bool databaseSupportsBifContains = false;
 
     public string defaultNodeCreationURI = "http://graph2vr.org/newNode#";

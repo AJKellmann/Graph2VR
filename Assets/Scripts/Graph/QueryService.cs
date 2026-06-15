@@ -27,7 +27,7 @@ public class QueryService : MonoBehaviour
 
   public INamespaceMapper defaultNamespace = new NamespaceMapper(true);
 
-  SparqlRemoteEndpoint endPoint = null;
+  ISparqlProvider sparqlProvider = null;
   private void Awake()
   {
     SetupSingelton();
@@ -37,7 +37,8 @@ public class QueryService : MonoBehaviour
 
   public void SwitchEndpoint()
   {
-    this.endPoint = GetEndPoint();
+    this.sparqlProvider = GetProvider();
+    Debug.Log($"SPARQL provider selected | provider: {sparqlProvider.ProviderName} | endpoint: {Settings.Instance.sparqlEndpoint} | baseURI: {Settings.Instance.baseURI}");
   }
 
   private void AddDefaultNamespaces()
@@ -54,12 +55,13 @@ public class QueryService : MonoBehaviour
     string refinmentQuery = GetExpandGraphQuery(node, uri, isOutgoingLink);
     string dataquery = GetSimpleExpandGraphQuery(node, uri, isOutgoingLink);
 
+    Debug.Log($"ExpandGraph {(isOutgoingLink ? "outgoing" : "incoming")} | node: {node.graph.RealNodeValue(node.graphNode)} | predicate: <{uri}> | limit: {queryLimit}\nData query:\n{dataquery}\nRefinement query:\n{refinmentQuery}");
     QuerySessionLogger.Log("ExpandGraph refinement " + (isOutgoingLink ? "outgoing" : "incoming"), refinmentQuery);
-    endPoint.QueryWithResultGraph(refinmentQuery, (completeGraph, state) =>
+    sparqlProvider.QueryWithResultGraph(refinmentQuery, (completeGraph, state) =>
     {
       if (state != null)
       {
-        Debug.LogWarning($"ExpandGraph remote query returned state: {state}");
+        LogQueryState("ExpandGraph remote query", state);
       }
 
       if (completeGraph == null)
@@ -86,12 +88,13 @@ public class QueryService : MonoBehaviour
   private void QueryDataGraphFallback(string dataquery, Action<IGraph, IGraph, object> queryCallback)
   {
     Debug.LogWarning("ExpandGraph refinement query failed. Falling back to data-only query.");
+    Debug.Log($"ExpandGraph data-only fallback query:\n{dataquery}");
     QuerySessionLogger.Log("ExpandGraph data-only fallback", dataquery);
-    endPoint.QueryWithResultGraph(dataquery, (dataGraph, dataState) =>
+    sparqlProvider.QueryWithResultGraph(dataquery, (dataGraph, dataState) =>
     {
       if (dataState != null)
       {
-        Debug.LogWarning($"ExpandGraph data-only fallback returned state: {dataState}");
+        LogQueryState("ExpandGraph data-only fallback", dataState);
       }
       queryCallback(dataGraph, null, dataState);
     }, state: null);
@@ -190,29 +193,32 @@ public class QueryService : MonoBehaviour
 
     string modelQuery = string.IsNullOrEmpty(modelPredicates) ? "" : $@"
         Optional{{
-          Select {variable} <http://graph2vr.org/model> AS ?graph2vrmodel sample(?model) as ?model
+          Select {variable} (<http://graph2vr.org/model> AS ?graph2vrmodel) (sample(?model) as ?model)
           where {{
             {variable} ({modelPredicates}) ?model .
             FILTER( strStarts( STR(?model), 'http://' ) || strStarts( STR(?model), 'https://' ) || strStarts( STR(?model), 'file://') || strStarts( STR(?model), 'ftp://')).
           }}
+          GROUP BY {variable}
         }}
 ";
 
     return $@"
         Optional{{
-          Select {variable} <http://graph2vr.org/label> AS ?graph2vrlabel sample(STR(?label)) as ?label
+          Select {variable} (<http://graph2vr.org/label> AS ?graph2vrlabel) (sample(STR(?label)) as ?label)
           where {{
             {variable} rdfs:label ?label .
             {LanguageFilterString("?label")}
           }}
+          GROUP BY {variable}
         }}
 
         Optional{{
-          Select {variable} <http://graph2vr.org/image> AS ?graph2vrimage sample(?image) as ?image
+          Select {variable} (<http://graph2vr.org/image> AS ?graph2vrimage) (sample(?image) as ?image)
           where {{
             {variable} ({imagePredicates}) ?image .
             FILTER( strStarts( STR(?image), 'http://' ) || strStarts( STR(?image), 'https://' ) || strStarts( STR(?image), 'file://') || strStarts( STR(?image), 'ftp://')).
           }}
+          GROUP BY {variable}
         }}
 
         {modelQuery}
@@ -228,7 +234,7 @@ public class QueryService : MonoBehaviour
     try
     {
       QuerySessionLogger.Log("Execute construct query", query);
-      endPoint.QueryWithResultGraph(query, (IGraph results, object state) =>
+      sparqlProvider.QueryWithResultGraph(query, (IGraph results, object state) =>
       {
         callback(results, additiveMode);
       }, state: null);
@@ -270,51 +276,43 @@ public class QueryService : MonoBehaviour
   public void GetGraphsOnSelectedServer(Action<List<string>> callback)
   {
     getGraphsOnSelectedServerCallback = callback;
-    StartCoroutine("GetGraphsOnSelectedServerHelper");
-  }
-
-  private IEnumerator GetGraphsOnSelectedServerHelper()
-  {
     string query = $@"
       SELECT DISTINCT ?graph
       WHERE {{ 
         GRAPH ?graph {{ ?s ?p ?o }}
       }}";
-    System.Net.HttpWebResponse results = endPoint.QueryRaw(query);
-    yield return new WaitForEndOfFrame();
 
-    StreamReader reader = new StreamReader(results.GetResponseStream());
-
-    string nextLine = reader.ReadLine();
-    string sparqlResult = nextLine;
-    while (nextLine != null)
+    sparqlProvider.QueryWithResultSet(query, (results, state) =>
     {
-      nextLine = reader.ReadLine();
-      sparqlResult += nextLine;
-      yield return new WaitForEndOfFrame();
-    }
+      if (state != null)
+      {
+        LogQueryState("GetGraphsOnSelectedServer", state);
+      }
 
-    XmlReader xmlReader = XmlReader.Create(new StringReader(sparqlResult));
-    XElement xml = XElement.Load(xmlReader);
-    XmlNameTable nameTable = new NameTable();
-    XmlNamespaceManager namespaceManager = new XmlNamespaceManager(nameTable);
-    string nameSpace = xml.GetDefaultNamespace().NamespaceName;
-    namespaceManager.AddNamespace("ns", nameSpace);
-    IEnumerable list = (IEnumerable)xml.XPathEvaluate("//ns:uri", namespaceManager);
+      List<string> graphNames = new List<string>();
+      if (results != null)
+      {
+        foreach (SparqlResult result in results)
+        {
+          if (result.TryGetValue("graph", out INode graphNode))
+          {
+            graphNames.Add(graphNode.ToString());
+          }
+        }
+      }
 
-    List<string> graphNames = new List<string>();
-    foreach (XElement graph in list)
-    {
-      graphNames.Add(graph.Value);
-    }
-    getGraphsOnSelectedServerCallback(graphNames);
+      UnityMainThreadDispatcher.Instance().Enqueue(() =>
+      {
+        getGraphsOnSelectedServerCallback(graphNames);
+      });
+    }, state: null);
   }
 
   public void GetOutgoingPredicats(string URI, SparqlResultsCallback sparqlResultsCallback)
   {
     string query = $@"
       {PREFIXES}
-      select distinct ?p (STR(COUNT(?o)) AS ?count) STR(?label) AS ?label 
+      select ?p (STR(COUNT(?o)) AS ?count) (SAMPLE(STR(?label)) AS ?label)
       where {{
         <{URI}> ?p ?o .
         OPTIONAL {{
@@ -322,17 +320,23 @@ public class QueryService : MonoBehaviour
         }}
         {LanguageFilterString("?label")}
       }}
+      GROUP BY ?p
       ORDER BY ?label ?p LIMIT 100";
   //  Debug.Log("GetOutgoingPredicats: "+ query);
+    Debug.Log($"GetOutgoingPredicats | uri: {URI}\n{query}");
     QuerySessionLogger.Log("Outgoing predicates", query);
-    endPoint.QueryWithResultSet(query, sparqlResultsCallback, state: null);
+    sparqlProvider.QueryWithResultSet(query, (results, state) =>
+    {
+      LogPredicateQueryResult("GetOutgoingPredicats", results, state);
+      sparqlResultsCallback(results, state);
+    }, state: null);
   }
 
   public void GetIncomingPredicats(string objectValue, SparqlResultsCallback sparqlResultsCallback)
   {
     string query = $@"
       {PREFIXES}
-      select distinct ?p (STR(COUNT(?s)) AS ?count) STR(?label) AS ?label 
+      select ?p (STR(COUNT(?s)) AS ?count) (SAMPLE(STR(?label)) AS ?label)
       where {{ 
         ?s ?p {objectValue} . 
         OPTIONAL {{
@@ -340,10 +344,32 @@ public class QueryService : MonoBehaviour
         }}
         {LanguageFilterString("?label")}
       }} 
+      GROUP BY ?p
       ORDER BY ?label ?p LIMIT 100";
  //   Debug.Log("GetIncomingPredicats: " + query);
+    Debug.Log($"GetIncomingPredicats | object: {objectValue}\n{query}");
     QuerySessionLogger.Log("Incoming predicates", query);
-    endPoint.QueryWithResultSet(query, sparqlResultsCallback, state: null);
+    sparqlProvider.QueryWithResultSet(query, (results, state) =>
+    {
+      LogPredicateQueryResult("GetIncomingPredicats", results, state);
+      sparqlResultsCallback(results, state);
+    }, state: null);
+  }
+
+  private void LogPredicateQueryResult(string context, SparqlResultSet results, object state)
+  {
+    if (state != null)
+    {
+      LogQueryState(context, state);
+    }
+
+    if (results == null)
+    {
+      Debug.LogWarning($"{context} returned no result set.");
+      return;
+    }
+
+    Debug.Log($"{context} returned {results.Count} predicate rows.");
   }
 
   public void GetLabelForPredicate(string uri, SparqlResultsCallback callback)
@@ -357,7 +383,7 @@ public class QueryService : MonoBehaviour
             }}
         }}
         LIMIT 1";
-    endPoint.QueryWithResultSet(query, (SparqlResultSet resultSet, object state) =>
+    sparqlProvider.QueryWithResultSet(query, (SparqlResultSet resultSet, object state) =>
     {
       if (resultSet == null)
       {
@@ -403,18 +429,18 @@ public class QueryService : MonoBehaviour
   public void GetDescriptionAsync(string URI, GraphCallback callback)
   {
     string query = "describe <" + URI + ">";
-    endPoint.QueryWithResultGraph(query, callback, null);
+    sparqlProvider.QueryWithResultGraph(query, callback, null);
   }
 
   public void QuerySimilarPatternsMultipleLayers(string triples, string triplesWithOptional, OrderedDictionary orderByList, List<string> groupByList, bool additiveMode, Action<SparqlResultSet, string, string, bool> callback)
   {
     string query = GetSimilarPatternsQuery(triplesWithOptional, orderByList, groupByList);
     QuerySessionLogger.Log("Query similar patterns", query);
-    endPoint.QueryWithResultSet(query, (SparqlResultSet results, object state) =>
+    sparqlProvider.QueryWithResultSet(query, (SparqlResultSet results, object state) =>
     {
       if (state != null)
       {
-        Debug.LogWarning($"QuerySimilarPatterns returned state: {state}");
+        LogQueryState("QuerySimilarPatterns", state);
       }
       callback(results, query, triples, additiveMode);
     }, null);
@@ -432,18 +458,19 @@ public class QueryService : MonoBehaviour
 
   public void CountQuerySimilarPatternsMultipleLayers(Graph graph, string triplesWithOptional, List<string> groupByList, Action<int> callback, string optionalVariable="*")
   {
-    string countExpression = optionalVariable == "*" ? "*" : "distinct " + optionalVariable;
+    string countExpression = optionalVariable == "*" ? "*" : "DISTINCT " + optionalVariable;
     string query = $@"
       {PREFIXES}
-      select count({countExpression}) as ?count where {{
+      SELECT (COUNT({countExpression}) AS ?count) WHERE {{
         {triplesWithOptional}
       }}";
+    Debug.Log($"CountQuerySimilarPatterns | variable: {optionalVariable}\n{query}");
     QuerySessionLogger.Log("Count similar patterns", query);
-    endPoint.QueryWithResultSet(query, (SparqlResultSet results, object state) =>
+    sparqlProvider.QueryWithResultSet(query, (SparqlResultSet results, object state) =>
     {
       if (state != null)
       {
-        Debug.LogWarning($"CountQuerySimilarPatterns returned state: {state}");
+        LogQueryState("CountQuerySimilarPatterns", state);
       }
       UnityMainThreadDispatcher.Instance().Enqueue(() =>
       {
@@ -475,7 +502,7 @@ public class QueryService : MonoBehaviour
     if (searchTerm.Length > 3)
     {
       string query = GetAutoCompleteQuery(searchTerm, variableNode);
-      endPoint.QueryWithResultSet(query, callback, state: null);
+      sparqlProvider.QueryWithResultSet(query, callback, state: null);
     }
     else
     {
@@ -598,7 +625,7 @@ public class QueryService : MonoBehaviour
 
     foreach (SparqlResult result in data)
     {
-      string label = ExtractVariableFrom(result, "label");
+      string label = ExtractDisplayLabelFrom(result, "label");
       string image = ExtractVariableFrom(result, "image");
       string model = ExtractVariableFrom(result, "model");
 
@@ -633,6 +660,28 @@ public class QueryService : MonoBehaviour
     return null;
   }
 
+  private string ExtractDisplayLabelFrom(SparqlResult result, string variable)
+  {
+    if (!result.HasValue(variable))
+    {
+      return null;
+    }
+
+    INode node = result.Value(variable);
+    if (node is ILiteralNode literalNode)
+    {
+      return literalNode.Value;
+    }
+
+    string value = node.ToString();
+    if (Uri.IsWellFormedUriString(value, UriKind.Absolute))
+    {
+      return Utils.GetShortLabelFromUri(value);
+    }
+
+    return value;
+  }
+
   public static string GetOrderByString(OrderedDictionary orderByList)
   {
     if (orderByList.Count > 0)
@@ -661,9 +710,25 @@ public class QueryService : MonoBehaviour
     return "";
   }
 
-  private SparqlRemoteEndpoint GetEndPoint()
+  private ISparqlProvider GetProvider()
   {
-    return new SparqlRemoteEndpoint(new Uri(Settings.Instance.sparqlEndpoint), Settings.Instance.baseURI);
+    return SparqlProviderFactory.Create(Settings.Instance);
+  }
+
+  private void LogQueryState(string context, object state)
+  {
+    AsyncError asyncError = state as AsyncError;
+    if (asyncError != null)
+    {
+      Debug.LogWarning($"{context} returned AsyncError. Original state: {asyncError.State}\n{asyncError.Error}");
+      if (asyncError.Error != null && asyncError.Error.InnerException != null)
+      {
+        Debug.LogWarning($"{context} inner exception:\n{asyncError.Error.InnerException}");
+      }
+      return;
+    }
+
+    Debug.LogWarning($"{context} returned state: {state}");
   }
 
   #region  Singleton

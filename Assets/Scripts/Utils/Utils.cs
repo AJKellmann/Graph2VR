@@ -99,15 +99,74 @@ public class Utils
 
   static public string GetShortLabelFromUri(string uri)
   {
+    string queryLabel = GetQueryParameterLabel(uri);
+    if (!string.IsNullOrEmpty(queryLabel))
+    {
+      return queryLabel;
+    }
+
     var list = uri.Split('/', '#');
     if (list.Length > 0)
     {
-      return list[list.Length - 1];
+      return DecodeUriLabel(list[list.Length - 1]);
     }
     else
     {
       return uri;
     }
+  }
+
+  static public string GetQueryParameterLabel(string uri)
+  {
+    if (string.IsNullOrEmpty(uri))
+    {
+      return "";
+    }
+
+    Uri parsedUri;
+    if (!Uri.TryCreate(uri, UriKind.Absolute, out parsedUri) || string.IsNullOrEmpty(parsedUri.Query))
+    {
+      return "";
+    }
+
+    Dictionary<string, string> parameters = new Dictionary<string, string>();
+    string query = parsedUri.Query.TrimStart('?');
+    foreach (string pair in query.Split('&'))
+    {
+      if (string.IsNullOrEmpty(pair))
+      {
+        continue;
+      }
+
+      string[] keyValue = pair.Split(new[] { '=' }, 2);
+      string key = DecodeUriLabel(keyValue[0]).ToLowerInvariant();
+      string value = keyValue.Length > 1 ? DecodeUriLabel(keyValue[1]) : "";
+      if (!parameters.ContainsKey(key))
+      {
+        parameters.Add(key, value);
+      }
+    }
+
+    string[] preferredKeys = { "name", "label", "target variable", "variable", "id" };
+    foreach (string key in preferredKeys)
+    {
+      if (parameters.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
+      {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  static public string DecodeUriLabel(string value)
+  {
+    if (string.IsNullOrEmpty(value))
+    {
+      return value;
+    }
+
+    return Uri.UnescapeDataString(value.Replace("+", " "));
   }
 
   static public Dictionary<string, Tuple<string, int>> GetPredicatsList(SparqlResultSet sparqlResults)

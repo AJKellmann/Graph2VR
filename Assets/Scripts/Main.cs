@@ -28,6 +28,7 @@ public class Main : MonoBehaviour
     {
       Settings.Instance.sparqlEndpoint = PlayerPrefs.GetString("CustomServer", "http://localhost:8890/sparql");
       Settings.Instance.baseURI = PlayerPrefs.GetString("CustomGraphDatabase", "");
+      Settings.Instance.providerType = SparqlProviderFactory.GenericSparql;
       Settings.Instance.databaseSupportsBifContains = false;
       Settings.Instance.searchOnKeypress = true;
       Settings.Instance.initialSparqlQueryString = $@"

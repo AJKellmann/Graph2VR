@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using VDS.RDF;
 using VDS.RDF.Query;
@@ -80,7 +81,7 @@ public class Graph : MonoBehaviour
     return node.NodeType switch
     {
       NodeType.GraphLiteral or NodeType.Literal => GetLiteralValue(node),
-      NodeType.Uri => $"<{(node as IUriNode).Uri.OriginalString}>",
+      NodeType.Uri => $"<{GetUriNodeValue(node)}>",
       NodeType.Blank => "_:blankNode",
       NodeType.Variable => (node as IVariableNode).VariableName,
       _ => "",
@@ -104,6 +105,21 @@ public class Graph : MonoBehaviour
       result += $"^^<{dataType}>";
     }
     return result;
+  }
+
+  private string GetNodeValue(INode node)
+  {
+    if (node == null)
+    {
+      return "";
+    }
+
+    return node.NodeType == NodeType.Uri ? GetUriNodeValue(node) : node.ToString();
+  }
+
+  private string GetUriNodeValue(INode node)
+  {
+    return (node as IUriNode).Uri.AbsoluteUri;
   }
 
   public void QuerySimilarPatternsSingleLayer()
@@ -232,7 +248,6 @@ public class Graph : MonoBehaviour
   {
     Quaternion rotation = Camera.main.transform.rotation;
     Vector3 offset = transform.position + (rotation * new Vector3(0, 0, 1 + boundingSphere.size));
-    Vector3 groupStep = rotation * new Vector3(0, 0, 0.5f);
     List<GroupedQueryResult> groupedResults = GroupQueryResults(results);
 
     foreach (GroupedQueryResult group in groupedResults)
@@ -249,7 +264,7 @@ public class Graph : MonoBehaviour
       {
         groupGraph.BuildByIGraph(resultGraph);
         SetupNewGraph(groupGraph, query, rotation, results);
-        offset += groupStep;
+        offset += rotation * new Vector3(0, 0, GetGroupedGraphSpacing(groupGraph));
       }
       else
       {
@@ -257,6 +272,35 @@ public class Graph : MonoBehaviour
         subGraphs.Remove(groupGraph);
       }
     }
+  }
+
+  private float GetGroupedGraphSpacing(Graph groupGraph)
+  {
+    float radius = CalculateGraphRadius(groupGraph);
+    return Mathf.Max(2.0f, (radius * 2.0f) + 0.75f);
+  }
+
+  private float CalculateGraphRadius(Graph graph)
+  {
+    if (graph == null || graph.nodeList.Count == 0)
+    {
+      return 1.0f;
+    }
+
+    Vector3 center = Vector3.zero;
+    foreach (Node node in graph.nodeList)
+    {
+      center += node.transform.position;
+    }
+    center /= graph.nodeList.Count;
+
+    float radius = 0.0f;
+    foreach (Node node in graph.nodeList)
+    {
+      radius = Mathf.Max(radius, Vector3.Distance(center, node.transform.position));
+    }
+
+    return radius;
   }
 
   private IGraph BuildGraphFromResults(List<SparqlResult> results)
@@ -465,11 +509,17 @@ public class Graph : MonoBehaviour
     {
       if (RealNodeValue(node.Value) != "")
       {
-        preSelectedQuery = preSelectedQuery.Replace("?" + node.Key, RealNodeValue(node.Value));
+        preSelectedQuery = ReplaceSparqlVariable(preSelectedQuery, node.Key, RealNodeValue(node.Value));
       }
     }
 
     return preSelectedQuery;
+  }
+
+  private string ReplaceSparqlVariable(string query, string variableName, string value)
+  {
+    string pattern = $@"(?<![A-Za-z0-9_])\?{Regex.Escape(variableName)}(?![A-Za-z0-9_])";
+    return Regex.Replace(query, pattern, value);
   }
 
   private void SetupNewGraph(Graph newGraph, string query, Quaternion rotation, SparqlResultSet results)
@@ -631,7 +681,7 @@ public class Graph : MonoBehaviour
   {
     if (IsNonExistantNode(triple.Subject))
     {
-      CreateNode(triple.Subject.ToString(), triple.Subject);
+      CreateNode(GetNodeValue(triple.Subject), triple.Subject);
     }
   }
 
@@ -639,7 +689,7 @@ public class Graph : MonoBehaviour
   {
     if (IsNonExistantNode(triple.Object))
     {
-      CreateNode(triple.Object.ToString(), triple.Object);
+      CreateNode(GetNodeValue(triple.Object), triple.Object);
     }
   }
 
@@ -650,6 +700,12 @@ public class Graph : MonoBehaviour
 
   public string GetShortName(string uri)
   {
+    string queryLabel = Utils.GetQueryParameterLabel(uri);
+    if (!string.IsNullOrEmpty(queryLabel))
+    {
+      return queryLabel;
+    }
+
     if (QueryService.Instance.defaultNamespace.ReduceToQName(uri, out string qName))
     {
       return qName;
@@ -658,13 +714,13 @@ public class Graph : MonoBehaviour
     string[] splittedHashUri = uri.Split('#');
     if (splittedHashUri.Length != 1)
     {
-      return splittedHashUri[^1];
+      return Utils.DecodeUriLabel(splittedHashUri[^1]);
     }
 
     string[] splittedBackslashUri = uri.Split('/');
     if (splittedBackslashUri.Length != 1)
     {
-      return splittedBackslashUri[^1];
+      return Utils.DecodeUriLabel(splittedBackslashUri[^1]);
     }
     else
     {
@@ -724,7 +780,7 @@ public class Graph : MonoBehaviour
     {
       if (!additiveMode || IsNonExistantNode(node))
       {
-        CreateNode(node.ToString(), node);
+        CreateNode(GetNodeValue(node), node);
       }
     }
 
@@ -778,7 +834,7 @@ public class Graph : MonoBehaviour
       return;
     }
 
-    Edge edge = InitializeEdge(uri.ToString(), fromNode, toNode);
+    Edge edge = InitializeEdge(GetNodeValue(uri), fromNode, toNode);
     edge.graphPredicate = uri;
     edge.graphSubject = from;
     edge.graphObject = to;
@@ -896,7 +952,7 @@ public class Graph : MonoBehaviour
 
     node.graph = this;
     node.SetURI(value);
-    node.SetLabel(value);
+    node.SetLabel(Uri.IsWellFormedUriString(value, UriKind.Absolute) ? Utils.GetShortLabelFromUri(value) : value);
     if (nodeList.Count == 0 && boundingSphere.unhideOnFirstResult)
     {
       boundingSphere.Show();

@@ -105,6 +105,7 @@ public class NodeMenu : BaseMenu
           return;
         }
         labelAndCountByUri = Utils.GetPredicatsList(results);
+        Debug.Log($"NodeMenu predicate callback | result rows: {(results == null ? "null" : results.Count.ToString())} | menu items: {labelAndCountByUri.Count}");
         populateMenuState = PopulateMenuState.loaded;
         PopulateNode(node);
       });

@@ -350,7 +350,7 @@ public class MainMenu : BaseMenu
   private void PopulateSettingsMenu()
   {
 
-    cm.AddButton(Icon("\uF51E") + "Current Server:\n" + Settings.Instance.sparqlEndpoint, Color.grey, () =>
+    cm.AddButton(Icon("\uF51E") + "Current Server:\n" + Settings.Instance.sparqlEndpoint + "\nProvider: " + Settings.Instance.providerType, Color.grey, () =>
     {
     });
     cm.AddButton("Current Graph:\n" + ((Settings.Instance.baseURI=="") ? "No specific graph": Settings.Instance.baseURI), Color.grey, () =>
@@ -372,6 +372,15 @@ public class MainMenu : BaseMenu
         PlayerPrefs.SetString("CustomGraphDatabase", "");
         Settings.Instance.baseURI = PlayerPrefs.GetString("CustomGraphDatabase", "");
         Settings.Instance.sparqlEndpoint = endpoint;
+        Settings.Instance.providerType = SparqlProviderFactory.GenericSparql;
+        Settings.Instance.updateEndpoint = "";
+        Settings.Instance.graphStoreEndpoint = "";
+        Settings.Instance.repositoryId = "";
+        Settings.Instance.catalogId = "";
+        Settings.Instance.username = "";
+        Settings.Instance.password = "";
+        Settings.Instance.timeoutMilliseconds = 0;
+        Settings.Instance.preferJsonResults = false;
         Settings.Instance.databaseSupportsBifContains = false;
         Settings.Instance.searchOnKeypress = false;
         QueryService.Instance.SwitchEndpoint();
@@ -385,6 +394,15 @@ public class MainMenu : BaseMenu
       {
         Settings.Instance.baseURI = dataBaseSettings.baseURI;
         Settings.Instance.sparqlEndpoint = dataBaseSettings.sparqlEndpoint;
+        Settings.Instance.providerType = dataBaseSettings.providerType;
+        Settings.Instance.updateEndpoint = dataBaseSettings.updateEndpoint;
+        Settings.Instance.graphStoreEndpoint = dataBaseSettings.graphStoreEndpoint;
+        Settings.Instance.repositoryId = dataBaseSettings.repositoryId;
+        Settings.Instance.catalogId = dataBaseSettings.catalogId;
+        Settings.Instance.username = dataBaseSettings.username;
+        Settings.Instance.password = dataBaseSettings.password;
+        Settings.Instance.timeoutMilliseconds = dataBaseSettings.timeoutMilliseconds;
+        Settings.Instance.preferJsonResults = dataBaseSettings.preferJsonResults;
         Settings.Instance.databaseSupportsBifContains = dataBaseSettings.databaseSupportsBifContains;
         Settings.Instance.searchOnKeypress = dataBaseSettings.searchOnKeypress;
         QueryService.Instance.SwitchEndpoint();

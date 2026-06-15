@@ -245,7 +245,7 @@ public class EdgeMenu : BaseMenu
       cm.AddButton(Icon("\uF292") + "Count all query results", Color.yellow / 2, () =>
       {
         graph.CountQuerySimilarPatternsMultipleLayers((int count) => {
-          queryMultipleLayerRefinementCount.Add("AllQueryResults", count);
+          queryMultipleLayerRefinementCount["AllQueryResults"] = count;
           PopulateEdge(edge);
         });
       }, queryMultipleLayerRefinementCount["AllQueryResults"]);
@@ -255,7 +255,7 @@ public class EdgeMenu : BaseMenu
       cm.AddButton(Icon("\uF292") + "Count all query results", Color.yellow / 2, () =>
       {
         graph.CountQuerySimilarPatternsMultipleLayers((int count) => {
-          queryMultipleLayerRefinementCount.Add("AllQueryResults", count);
+          queryMultipleLayerRefinementCount["AllQueryResults"] = count;
           PopulateEdge(edge);
         });
       });
@@ -269,7 +269,7 @@ public class EdgeMenu : BaseMenu
         cm.AddButton(Icon("\uF292") + "Count distinct " + variable, Color.yellow / 2, () =>
         {
           graph.CountQuerySimilarPatternsMultipleLayers((int count) => {
-            queryMultipleLayerRefinementCount.Add(variable, count);
+            queryMultipleLayerRefinementCount[variable] = count;
             PopulateEdge(edge);
           }, variable);
         }, queryMultipleLayerRefinementCount[variable]);
@@ -279,7 +279,7 @@ public class EdgeMenu : BaseMenu
         cm.AddButton(Icon("\uF292") + "Count distinct " + variable, Color.yellow / 2, () =>
         {
           graph.CountQuerySimilarPatternsMultipleLayers((int count) => {
-            queryMultipleLayerRefinementCount.Add(variable, count);
+            queryMultipleLayerRefinementCount[variable] = count;
             PopulateEdge(edge);
           }, variable);
         });

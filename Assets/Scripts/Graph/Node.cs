@@ -1,4 +1,5 @@
 ﻿using Dweiss;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -144,8 +145,28 @@ public class Node : MonoBehaviour
     Edge labelEdge = connections.Find(edge => edge.displaySubject == this && IsLabelPredicate(edge.uri));
     if (labelEdge != null)
     {
-      SetLabel(labelEdge.displayObject.uri);
+      SetLabel(GetDisplayLabel(labelEdge.displayObject));
     }
+  }
+
+  private string GetDisplayLabel(Node node)
+  {
+    if (node == null)
+    {
+      return "";
+    }
+
+    if (node.graphNode is ILiteralNode literalNode)
+    {
+      return literalNode.Value;
+    }
+
+    if (Uri.IsWellFormedUriString(node.uri, UriKind.Absolute))
+    {
+      return Utils.GetShortLabelFromUri(node.uri);
+    }
+
+    return node.label;
   }
 
   private void ConnectModelToNode()
@@ -182,7 +203,7 @@ public class Node : MonoBehaviour
 
   private bool IsLabelPredicate(string predicate)
   {
-    return predicate == "http://www.w3.org/2000/01/rdf-schema#label";
+    return predicate == "http://www.w3.org/2000/01/rdf-schema#label" || predicate == "http://graph2vr.org/label";
   }
 
   private bool IsImagePredicate(string predicate)
@@ -314,7 +335,7 @@ public class Node : MonoBehaviour
           SetColor(Settings.Instance.literalColor);
           break;
         case NodeType.Uri:
-          uri = ((IUriNode)graphNode).Uri.OriginalString;
+          uri = ((IUriNode)graphNode).Uri.AbsoluteUri;
           if (uri == "http://www.w3.org/2002/07/owl#Thing")
           {
             SetColor(Settings.Instance.nodeOwlClassColor);
@@ -396,7 +417,7 @@ public class Node : MonoBehaviour
     {
       UnityWebRequest imageRequest = UnityWebRequestTexture.GetTexture(uri, false);
       yield return imageRequest.SendWebRequest();
-      yield return new WaitForSeconds(Random.Range(0.0f, 5.0f));
+      yield return new WaitForSeconds(UnityEngine.Random.Range(0.0f, 5.0f));
       if (imageRequest.result != UnityWebRequest.Result.Success)
       {
         imageRequest.Dispose();
