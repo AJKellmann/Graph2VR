@@ -3,6 +3,9 @@ using UnityEngine;
 
 public class Main : MonoBehaviour
 {
+  private const int QuestLeanTweenCapacity = 2000;
+  private const int DesktopLeanTweenCapacity = 50000;
+
   public string languageCode = "en";
 
   static public Main instance;
@@ -16,6 +19,7 @@ public class Main : MonoBehaviour
   void Start()
   {
     Main.instance.languageCode = PlayerPrefs.GetString("LanguageCode", "");
+    Settings.Instance.queryLoggingEnabled = PlayerPrefs.GetInt("QueryLoggingEnabled", 0) == 1;
 
     VDS.RDF.Options.UsePLinqEvaluation = false;
 
@@ -63,6 +67,11 @@ public class Main : MonoBehaviour
   private void Awake()
   {
     instance = this;
+#if UNITY_ANDROID && !UNITY_EDITOR
+    LeanTween.init(QuestLeanTweenCapacity);
+#else
+    LeanTween.init(DesktopLeanTweenCapacity);
+#endif
   }
 
   public Graph CreateGraph()

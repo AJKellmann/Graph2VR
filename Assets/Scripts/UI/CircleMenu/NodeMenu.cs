@@ -15,6 +15,11 @@ public class NodeMenu : BaseMenu
     cm.Close();
     KeyboardHandler.instance.Close();
     node = input as Node;
+    if (node == null || node.graph == null)
+    {
+      Debug.LogWarning("NodeMenu.PopulateNode called without a valid node.");
+      return;
+    }
     graph = node.graph;
 
     if (subMenu != "")
@@ -94,6 +99,11 @@ public class NodeMenu : BaseMenu
     {
       UnityMainThreadDispatcher.Instance().Enqueue(() =>
       {
+        if (node == null || node.graph == null)
+        {
+          Debug.LogWarning("NodeMenu predicate callback skipped because the node is no longer available.");
+          return;
+        }
         labelAndCountByUri = Utils.GetPredicatsList(results);
         populateMenuState = PopulateMenuState.loaded;
         PopulateNode(node);

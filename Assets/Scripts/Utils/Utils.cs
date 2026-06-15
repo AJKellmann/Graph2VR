@@ -112,6 +112,11 @@ public class Utils
 
   static public Dictionary<string, Tuple<string, int>> GetPredicatsList(SparqlResultSet sparqlResults)
   {
+    if (sparqlResults == null)
+    {
+      return new Dictionary<string, Tuple<string, int>>();
+    }
+
     return sparqlResults.Aggregate(new Dictionary<string, Tuple<string, int>>(), (accum, result) =>
     {
       result.TryGetValue("p", out INode predicate);
@@ -123,7 +128,11 @@ public class Utils
       if (predicate != null)
       {
         string predicateString = predicate.ToString();
-        int count = int.Parse(countNode.ToString());
+        int count = 0;
+        if (countNode != null)
+        {
+          int.TryParse(countNode.ToString(), out count);
+        }
         Tuple<string, int> value = new Tuple<string, int>(label, count);
         if (!accum.ContainsKey(predicateString))
         {

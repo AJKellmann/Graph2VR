@@ -20,6 +20,7 @@ public class SceneRayCaster : BaseRaycaster
   {
     Ray ray = new Ray(gameObject.transform.position, gameObject.transform.forward);
     RaycastHit[] hitResults = Physics.RaycastAll(ray, maxDistance, layer.value);
+    System.Array.Sort(hitResults, (left, right) => left.distance.CompareTo(right.distance));
     foreach (RaycastHit hitResult in hitResults)
     {
       if (hitResult.collider.gameObject != null)

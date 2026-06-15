@@ -86,9 +86,9 @@ public class SpatialGrid2D : BaseLayoutAlgorithm
 
    private Vector2Int LocalSpaceToListSpace(Vector3 position)
    {
-      int x = (int)((position.x / pushDistance) + left);
-      int y = (int)((position.y / pushDistance) + bottom);
-      return new Vector2Int(Mathf.Clamp(x, 0, xSteps), Mathf.Clamp(y, 0, ySteps));
+      int x = (int)((position.x - left) / pushDistance);
+      int y = (int)((position.y - bottom) / pushDistance);
+      return new Vector2Int(Mathf.Clamp(x, 0, xSteps - 1), Mathf.Clamp(y, 0, ySteps - 1));
    }
 
    private void Update()

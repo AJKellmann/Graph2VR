@@ -5,6 +5,9 @@ public class ClassHierarchy : BaseLayoutAlgorithm
 {
   private static readonly string SUBCLASS_OF_PREDICATE = "http://www.w3.org/2000/01/rdf-schema#subclassof";
   private static readonly string TYPE_PREDICATE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+  private static readonly string OWL_THING = "http://www.w3.org/2002/07/owl#thing";
+  private static readonly string OWL_CLASS = "http://www.w3.org/2002/07/owl#class";
+  private static readonly string RDFS_CLASS = "http://www.w3.org/2000/01/rdf-schema#class";
   private readonly float offsetSize = 0.3f;
   private bool running = false;
   private bool notAClassHiearchy = false;
@@ -28,8 +31,9 @@ public class ClassHierarchy : BaseLayoutAlgorithm
   {
     ResetNodes();
     graph.SortNodes();
-    CalculateHierarchicalLevels();
+    MarkKnownClassNodes();
     SortNodeList();
+    CalculateHierarchicalLevels();
     CalculatePositions();
     running = true;
   }
@@ -53,7 +57,7 @@ public class ClassHierarchy : BaseLayoutAlgorithm
     }
     else
     {
-      initialNode = subClassOfEdgeList[0].displaySubject;
+      initialNode = FindInitialClassRoot(subClassOfEdgeList);
     }
 
     initialNode.hierarchicalSettings.SetLevel(0);
@@ -63,6 +67,15 @@ public class ClassHierarchy : BaseLayoutAlgorithm
 
   private void CalculateHierarchicalLevelsForMultipleRootNodes()
   {
+    foreach (Node node in graph.nodeList)
+    {
+      if (!node.hierarchicalSettings.levelFound && IsKnownClassNode(node))
+      {
+        node.hierarchicalSettings.SetLevel(0);
+        SetHierarchicalLevels(node);
+      }
+    }
+
     foreach (Node node in graph.nodeList)
     {
       if (!node.hierarchicalSettings.levelFound)
@@ -80,7 +93,12 @@ public class ClassHierarchy : BaseLayoutAlgorithm
     {
       if (node.hierarchicalSettings.level == 0)
       {
+        float previousOffset = offset;
         offset = PositionNodeLevels(node, 0, offset);
+        if (Mathf.Approximately(previousOffset, offset))
+        {
+          offset += offsetSize;
+        }
       }
     }
   }
@@ -89,7 +107,15 @@ public class ClassHierarchy : BaseLayoutAlgorithm
   {
     foreach (Node node in graph.nodeList)
     {
-      node.connections.Sort((Edge a, Edge b) => string.Compare(a.displaySubject.textMesh.text, b.displaySubject.textMesh.text));
+      node.connections.Sort((Edge a, Edge b) =>
+      {
+        int priority = GetEdgePriority(a).CompareTo(GetEdgePriority(b));
+        if (priority != 0) return priority;
+
+        Node partnerA = Utils.GetPartnerNode(node, a);
+        Node partnerB = Utils.GetPartnerNode(node, b);
+        return string.Compare(partnerA.textMesh.text, partnerB.textMesh.text);
+      });
     }
   }
 
@@ -119,16 +145,30 @@ public class ClassHierarchy : BaseLayoutAlgorithm
     if (partnerNode.hierarchicalSettings.levelFound) return null;
     int edgeDirection = FindEdgeDirection(node, edge);
 
-    if (edge.uri.ToLower() == SUBCLASS_OF_PREDICATE)
+    if (IsClassDeclarationEdge(edge))
+    {
+      edge.displaySubject.hierarchicalSettings.hierarchicalType = Hierarchical.HierarchicalType.SubClassOf;
+      return null;
+    }
+
+    if (IsSubClassOfEdge(edge))
     {
       SetSubClassOfSettings(node, edgeDirection, partnerNode);
     }
-    else if (edge.uri.ToLower() == TYPE_PREDICATE)
+    else if (IsTypeEdge(edge))
     {
+      if (Utils.IsSubjectNode(node, edge))
+      {
+        return null;
+      }
       SetTypeSettings(node, edgeDirection, partnerNode);
     }
     else
     {
+      if (IsKnownClassNode(partnerNode))
+      {
+        return null;
+      }
       SetOtherSettings(node, partnerNode);
     }
 
@@ -190,7 +230,78 @@ public class ClassHierarchy : BaseLayoutAlgorithm
 
   private int FindEdgeDirection(Node node, Edge edge)
   {
-    return (Utils.IsSubjectNode(node, edge) && edge.uri.ToLower() == SUBCLASS_OF_PREDICATE) ? -1 : 1;
+    return (Utils.IsSubjectNode(node, edge) && IsSubClassOfEdge(edge)) ? -1 : 1;
+  }
+
+  private void MarkKnownClassNodes()
+  {
+    foreach (Node node in graph.nodeList)
+    {
+      if (IsKnownClassNode(node))
+      {
+        node.hierarchicalSettings.hierarchicalType = Hierarchical.HierarchicalType.SubClassOf;
+      }
+    }
+  }
+
+  private Node FindInitialClassRoot(List<Edge> subClassOfEdgeList)
+  {
+    Node owlThing = graph.nodeList.Find(node => NodeUri(node) == OWL_THING);
+    if (owlThing != null) return owlThing;
+
+    List<Node> classRoots = new();
+    foreach (Edge edge in subClassOfEdgeList)
+    {
+      bool hasSuperClass = subClassOfEdgeList.Exists(otherEdge => otherEdge.displaySubject == edge.displayObject);
+      if (!hasSuperClass && !classRoots.Contains(edge.displayObject))
+      {
+        classRoots.Add(edge.displayObject);
+      }
+    }
+
+    classRoots.Sort((Node a, Node b) => string.Compare(a.textMesh.text, b.textMesh.text));
+    return classRoots.Count > 0 ? classRoots[0] : subClassOfEdgeList[0].displayObject;
+  }
+
+  private int GetEdgePriority(Edge edge)
+  {
+    if (IsSubClassOfEdge(edge)) return 0;
+    if (IsTypeEdge(edge)) return 1;
+    return 2;
+  }
+
+  private bool IsKnownClassNode(Node node)
+  {
+    string uri = NodeUri(node);
+    if (uri == OWL_THING || uri == OWL_CLASS || uri == RDFS_CLASS) return true;
+
+    foreach (Edge edge in graph.edgeList)
+    {
+      if (IsSubClassOfEdge(edge) && (edge.displaySubject == node || edge.displayObject == node)) return true;
+      if (IsClassDeclarationEdge(edge) && edge.displaySubject == node) return true;
+    }
+    return false;
+  }
+
+  private bool IsClassDeclarationEdge(Edge edge)
+  {
+    return IsTypeEdge(edge) && (NodeUri(edge.displayObject) == OWL_CLASS || NodeUri(edge.displayObject) == RDFS_CLASS);
+  }
+
+  private static bool IsSubClassOfEdge(Edge edge)
+  {
+    return edge.uri.ToLower() == SUBCLASS_OF_PREDICATE;
+  }
+
+  private static bool IsTypeEdge(Edge edge)
+  {
+    return edge.uri.ToLower() == TYPE_PREDICATE;
+  }
+
+  private static string NodeUri(Node node)
+  {
+    if (node == null || node.uri == null) return "";
+    return node.uri.ToLower();
   }
 
   public float PositionNodeLevels(Node node, int level, float subClassOfOffset)

@@ -291,6 +291,15 @@ public class Edge : MonoBehaviour
     graphPredicate = GetVariableInode();
   }
 
+  public void RestoreVariable(string savedVariableName)
+  {
+    IsVariable = true;
+    nonVariableGraphPredicate = graphPredicate;
+    variableName = savedVariableName;
+    graphPredicate = nodeFactory.CreateVariableNode(savedVariableName.TrimStart('?'));
+    UpdateEdgeText();
+  }
+
   private IVariableNode GetVariableInode()
   {
     SetVariableName(graph.variableNameManager.GetVariableName(graphPredicate));

@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.005506694, g: 0.022075854, b: 0.04601198, a: 1}
+  m_IndirectSpecularColor: {r: 0.0055015082, g: 0.022027984, b: 0.045998562, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -7246,13 +7246,17 @@ MonoBehaviour:
   initialSparqlURI: http://www.w3.org/2002/07/owl#Thing
   startWithSingleNode: 0
   searchOnKeypress: 1
+  queryLoggingEnabled: 0
   playerHeight: 1.8
+  modelNodeSize: 0.75
   imagePredicates:
   - http://xmlns.com/foaf/0.1/depiction
-  - http://xmlns.com/foaf/0.1/Image
   - http://xmlns.com/foaf/0.1/thumbnail
   - http://dbpedia.org/property/photo
   - http://dbpedia.org/ontology/thumbnail
+  modelPredicates:
+  - http://graph2vr.org/model
+  - http://graph2vr.org/mesh
   infopanelPredicates:
   - http://www.w3.org/1999/02/22-rdf-syntax-ns#type
   - http://www.w3.org/2000/01/rdf-schema#label

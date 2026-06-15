@@ -30,6 +30,9 @@ public class Node : MonoBehaviour
   private bool isControllerHovered = false;
   private bool isControllerGrabbed = false;
   private Texture2D cachedImage = null;
+  private string cachedModelUri = "";
+  private float modelDisplaySize = -1f;
+  private GameObject modelObject = null;
 
   public bool LockPosition
   {
@@ -102,11 +105,20 @@ public class Node : MonoBehaviour
     UpdateColor();
 
     ShowFocus(Color.white);
-    LeanTween.value(gameObject, (float value) => transform.Find("Selected").gameObject.GetComponentInChildren<Renderer>().material.color = new Color32(1, 1, 1, (byte)(value * 255)), 1f, 0f, 3f).setOnComplete(() =>
+    LTDescr focusTween = LeanTween.value(gameObject, (float value) => transform.Find("Selected").gameObject.GetComponentInChildren<Renderer>().material.color = new Color32(1, 1, 1, (byte)(value * 255)), 1f, 0f, 3f);
+    if (focusTween != null)
+    {
+      focusTween.setOnComplete(() =>
+      {
+        transform.Find("Selected").gameObject.GetComponentInChildren<Renderer>().material.color = Color.black;
+        HideFocus();
+      });
+    }
+    else
     {
       transform.Find("Selected").gameObject.GetComponentInChildren<Renderer>().material.color = Color.black;
       HideFocus();
-    });
+    }
     if (!isVariable)
     {
       RefineNode();
@@ -123,6 +135,7 @@ public class Node : MonoBehaviour
     {
       ConnectLabelToNode();
       ConnectImageToNode();
+      ConnectModelToNode();
     }
   }
 
@@ -132,6 +145,22 @@ public class Node : MonoBehaviour
     if (labelEdge != null)
     {
       SetLabel(labelEdge.displayObject.uri);
+    }
+  }
+
+  private void ConnectModelToNode()
+  {
+    List<string> modelPredicats = new List<string>();
+    foreach (Edge edge in connections)
+    {
+      if (IsModelPredicate(edge.uri))
+      {
+        modelPredicats.Add(edge.displayObject.uri);
+      }
+    }
+    if (modelPredicats.Count > 0)
+    {
+      SetModelFromList(modelPredicats);
     }
   }
 
@@ -159,6 +188,23 @@ public class Node : MonoBehaviour
   private bool IsImagePredicate(string predicate)
   {
     foreach (string pred in Settings.Instance.imagePredicates)
+    {
+      if (predicate.Equals(pred))
+      {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private bool IsModelPredicate(string predicate)
+  {
+    if (Settings.Instance.modelPredicates == null)
+    {
+      return false;
+    }
+
+    foreach (string pred in Settings.Instance.modelPredicates)
     {
       if (predicate.Equals(pred))
       {
@@ -220,7 +266,6 @@ public class Node : MonoBehaviour
           return true;
         case "http://www.w3.org/2002/07/owl#Class":
           SetColor(Settings.Instance.nodeOwlClassColor);
-          Debug.Log("I was here 1");
           return true;
         case "http://www.w3.org/2000/01/rdf-schema#Class":
           SetColor(Settings.Instance.nodeRdfsClassColor);
@@ -273,7 +318,6 @@ public class Node : MonoBehaviour
           if (uri == "http://www.w3.org/2002/07/owl#Thing")
           {
             SetColor(Settings.Instance.nodeOwlClassColor);
-            Debug.Log("I found owl:thing");
           }
           else SetColor(ColorSettings.instance.uriColor);
           break;
@@ -283,7 +327,16 @@ public class Node : MonoBehaviour
 
   void Update()
   {
-    transform.rotation = Quaternion.LookRotation(Camera.main.transform.position - transform.position, Vector3.up);
+    Quaternion cameraFacingRotation = Quaternion.LookRotation(Camera.main.transform.position - transform.position, Vector3.up);
+    if (modelObject == null && string.IsNullOrEmpty(cachedModelUri))
+    {
+      transform.rotation = cameraFacingRotation;
+    }
+    else
+    {
+      textMesh.transform.rotation = cameraFacingRotation;
+    }
+
     if (isControllerGrabbed || isPointerHovered)
     {
       textMesh.transform.localScale = Vector3.one * 0.6f;
@@ -385,6 +438,181 @@ public class Node : MonoBehaviour
   public Texture2D GetTexture()
   {
     return cachedImage;
+  }
+
+  public void SetModelFromList(List<string> models)
+  {
+    if (models == null || models.Count == 0) return;
+    cachedModelUri = models.Find(model => !string.IsNullOrWhiteSpace(model)) ?? "";
+    StartCoroutine(FindAndSetWorkingModel(models));
+  }
+
+  private IEnumerator FindAndSetWorkingModel(List<string> models)
+  {
+    foreach (string uri in models)
+    {
+      if (string.IsNullOrWhiteSpace(uri)) continue;
+
+      string modelPath = uri.Split('?')[0].Split('#')[0];
+      if (modelPath.EndsWith(".gltf", System.StringComparison.OrdinalIgnoreCase) || modelPath.EndsWith(".glb", System.StringComparison.OrdinalIgnoreCase))
+      {
+        Debug.LogWarning($"Runtime model loading for glTF/GLB is not connected yet: {uri}");
+        continue;
+      }
+
+      bool canLoadObj = RuntimeObjLoader.CanLoad(uri);
+      bool canLoadStl = RuntimeStlLoader.CanLoad(uri);
+      if (!canLoadObj && !canLoadStl)
+      {
+        Debug.LogWarning($"Unsupported runtime model format: {uri}");
+        continue;
+      }
+
+      UnityWebRequest modelRequest = UnityWebRequest.Get(uri);
+      yield return modelRequest.SendWebRequest();
+
+      if (modelRequest.result != UnityWebRequest.Result.Success)
+      {
+        Debug.LogWarning($"Could not load model '{uri}': {modelRequest.error}");
+        modelRequest.Dispose();
+        continue;
+      }
+
+      Material material = new Material(GetComponent<Renderer>().material);
+      GameObject loadedModel = null;
+      bool modelLoaded = false;
+
+      if (canLoadObj)
+      {
+        string objText = modelRequest.downloadHandler.text;
+        Dictionary<string, Material> materials = null;
+        yield return LoadObjMaterials(objText, uri, material, loadedMaterials => materials = loadedMaterials);
+        modelLoaded = RuntimeObjLoader.TryCreateGameObject(objText, "NodeModel", material, materials, out loadedModel);
+      }
+      else if (canLoadStl)
+      {
+        modelLoaded = RuntimeStlLoader.TryCreateGameObject(modelRequest.downloadHandler.data, "NodeModel", material, out loadedModel);
+      }
+
+      if (modelLoaded)
+      {
+        SetModelObject(loadedModel, uri);
+        modelRequest.Dispose();
+        break;
+      }
+
+      Debug.LogWarning($"Could not parse model: {uri}");
+      modelRequest.Dispose();
+    }
+  }
+
+  private IEnumerator LoadObjMaterials(string objText, string objUri, Material fallbackMaterial, System.Action<Dictionary<string, Material>> callback)
+  {
+    Dictionary<string, Material> materials = new Dictionary<string, Material>();
+    foreach (string mtlUri in RuntimeObjLoader.GetMaterialLibraryUris(objText, objUri))
+    {
+      UnityWebRequest materialRequest = UnityWebRequest.Get(mtlUri);
+      yield return materialRequest.SendWebRequest();
+
+      if (materialRequest.result != UnityWebRequest.Result.Success)
+      {
+        Debug.LogWarning($"Could not load OBJ material library '{mtlUri}': {materialRequest.error}");
+        materialRequest.Dispose();
+        continue;
+      }
+
+      Dictionary<string, RuntimeObjLoader.ObjMaterialDefinition> definitions = RuntimeObjLoader.ParseMaterialLibrary(materialRequest.downloadHandler.text, mtlUri);
+      materialRequest.Dispose();
+
+      foreach (RuntimeObjLoader.ObjMaterialDefinition definition in definitions.Values)
+      {
+        Material material = new Material(fallbackMaterial);
+        material.name = definition.name;
+        material.color = definition.color;
+
+        if (!string.IsNullOrEmpty(definition.textureUri))
+        {
+          UnityWebRequest textureRequest = UnityWebRequestTexture.GetTexture(definition.textureUri, false);
+          yield return textureRequest.SendWebRequest();
+
+          if (textureRequest.result == UnityWebRequest.Result.Success)
+          {
+            Texture2D texture = DownloadHandlerTexture.GetContent(textureRequest);
+            material.mainTexture = texture;
+          }
+          else
+          {
+            Debug.LogWarning($"Could not load OBJ material texture '{definition.textureUri}': {textureRequest.error}");
+          }
+          textureRequest.Dispose();
+        }
+
+        materials[definition.name] = material;
+      }
+    }
+
+    callback(materials);
+  }
+
+  private void SetModelObject(GameObject loadedModel, string uri)
+  {
+    if (modelObject != null)
+    {
+      Destroy(modelObject);
+    }
+
+    cachedModelUri = uri;
+    modelObject = loadedModel;
+    modelObject.transform.SetParent(transform, false);
+    modelObject.transform.localRotation = Quaternion.identity;
+    NormalizeModelObject(modelObject);
+
+    Transform border = transform.Find("Border");
+    if (border != null)
+    {
+      border.gameObject.SetActive(false);
+    }
+    GetComponent<Renderer>().enabled = false;
+  }
+
+  private void NormalizeModelObject(GameObject loadedModel)
+  {
+    Renderer renderer = loadedModel.GetComponentInChildren<Renderer>();
+    if (renderer == null) return;
+
+    Bounds bounds = renderer.bounds;
+    foreach (Renderer childRenderer in loadedModel.GetComponentsInChildren<Renderer>())
+    {
+      bounds.Encapsulate(childRenderer.bounds);
+    }
+
+    float maxSize = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
+    if (maxSize <= 0f) return;
+
+    if (modelDisplaySize <= 0f)
+    {
+      modelDisplaySize = Settings.Instance.modelNodeSize;
+    }
+
+    float scale = modelDisplaySize / maxSize;
+    Vector3 localCenter = loadedModel.transform.InverseTransformPoint(bounds.center);
+    loadedModel.transform.localScale = Vector3.one * scale;
+    loadedModel.transform.localPosition = -localCenter * scale;
+  }
+
+  public string GetModelUri()
+  {
+    return cachedModelUri;
+  }
+
+  public float GetModelDisplaySize()
+  {
+    return modelDisplaySize;
+  }
+
+  public void SetModelDisplaySize(float size)
+  {
+    modelDisplaySize = size;
   }
 
   public void MakeVariable()
@@ -499,6 +727,7 @@ public class Node : MonoBehaviour
     infoPanel = Instantiate<Canvas>(Resources.Load<Canvas>("UI/ContextMenu"));
     infoPanel.renderMode = RenderMode.WorldSpace;
     infoPanel.worldCamera = GameObject.Find("Controller (right)").GetComponentInChildren<Camera>();
+    infoPanel.gameObject.AddComponent<PanelGrabInteraction>();
     ContextMenuHandler selectorHandler = infoPanel.GetComponent<ContextMenuHandler>();
     selectorHandler.Initiate(this);
   }

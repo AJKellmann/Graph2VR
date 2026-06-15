@@ -85,15 +85,7 @@ public class CircleMenu : MonoBehaviour
 
   public void Close()
   {
-    foreach (Transform child in transform)
-    {
-      Destroy(child.gameObject);
-    }
-    sliderLine = gameObject.GetComponent<LineRenderer>();
-    if (sliderLine != null)
-    {
-      Destroy(sliderLine);
-    }
+    ClearGeneratedElements();
 
     buttons.Clear();
     isBuild = false;
@@ -108,8 +100,7 @@ public class CircleMenu : MonoBehaviour
   public void ReBuild()
   {
     transform.localRotation = Quaternion.Euler(localRotationOffset);
-    // Remove all child elements
-    foreach (Transform child in transform) Destroy(child.gameObject);
+    ClearGeneratedElements();
 
     GameObject sliderCollider = new GameObject("SliderCollider");
     sliderCollider.transform.SetParent(transform);
@@ -236,6 +227,7 @@ public class CircleMenu : MonoBehaviour
       {
         sliderLine = gameObject.AddComponent<LineRenderer>();
       }
+      sliderLine.enabled = true;
 
       // We need a slider
       float totalAngle = 180;
@@ -265,6 +257,23 @@ public class CircleMenu : MonoBehaviour
       }
     }
     isBuild = true;
+  }
+
+  private void ClearGeneratedElements()
+  {
+    foreach (Transform child in transform)
+    {
+      child.gameObject.SetActive(false);
+      Destroy(child.gameObject);
+    }
+
+    sliderNob = null;
+    sliderLine = gameObject.GetComponent<LineRenderer>();
+    if (sliderLine != null)
+    {
+      sliderLine.enabled = false;
+      Destroy(sliderLine);
+    }
   }
 
   private Mesh GenerateArcButton(float angle, float from, float to, float height)

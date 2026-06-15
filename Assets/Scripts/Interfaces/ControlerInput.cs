@@ -78,11 +78,18 @@ public class ControlerInput : MonoBehaviour
   {
     if (gripActionLeft.action != null) gripActionLeft.action.performed -= GripActionLeft;
     if (gripActionRight.action != null) gripActionRight.action.performed -= GripActionRight;
-    if (triggerActionLeft.action != null) gripActionLeft.action.performed -= TriggerActionLeft;
-    if (triggerActionRight.action != null) gripActionRight.action.performed -= TriggerActionRight;
+    if (triggerActionLeft.action != null) triggerActionLeft.action.performed -= TriggerActionLeft;
+    if (triggerActionRight.action != null) triggerActionRight.action.performed -= TriggerActionRight;
     if (leftAxis.action != null) leftAxis.action.performed -= LeftAxis;
+    if (leftAxis.action != null) leftAxis.action.canceled -= LeftAxisCancel;
     if (rightAxis.action != null) rightAxis.action.performed -= RightAxis;
+    if (rightAxis.action != null) rightAxis.action.canceled -= RightAxisCancel;
+    if (viveTrackpadLeftClick.action != null) viveTrackpadLeftClick.action.performed -= ViveTrackpadLeftClick;
+    if (viveTrackpadRightClick.action != null) viveTrackpadRightClick.action.performed -= ViveTrackpadRightClick;
+    if (viveTrackpadLeftTouchReleased.action != null) viveTrackpadLeftTouchReleased.action.performed -= ViveTrackpadLeftTouchReleased;
+    if (viveTrackpadRightTouchReleased.action != null) viveTrackpadRightTouchReleased.action.performed -= ViveTrackpadRightTouchReleased;
     if (menuButton.action != null) menuButton.action.performed -= MenuButton;
+    if (menuButton.action != null) menuButton.action.canceled -= MenuButton;
   }
 
   void LeftAxis(InputAction.CallbackContext a)

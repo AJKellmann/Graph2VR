@@ -83,6 +83,16 @@ public class BaseMenu : MonoBehaviour
       graph.SetLayout(Graph.Layout.FruchtermanReingold);
     });
 
+    cm.AddButton(Icon("\uF1E0") + "Layout: Barnes-Hut 3D", Color.green / 2, () =>
+    {
+      graph.SetLayout(Graph.Layout.BarnesHut3D);
+    });
+
+    cm.AddButton(Icon("\uF1E0") + "Layout: Louvain Cluster 3D", Color.green / 2, () =>
+    {
+      graph.SetLayout(Graph.Layout.LouvainCluster3D);
+    });
+
     cm.AddButton(Icon("\uF5EE") + "Layout: Force Directed 2D", Color.green / 2, () =>
     {
       graph.SetLayout(Graph.Layout.SpatialGrid2D);
@@ -101,6 +111,12 @@ public class BaseMenu : MonoBehaviour
     cm.AddButton(Icon("\uF021") + "Refresh layout", Color.yellow / 2, () =>
     {
       graph.layout.CalculateLayout();
+    });
+
+    cm.AddButton(Icon("\uF121") + "Show SPARQL query", defaultMenuColor, () =>
+    {
+      graph.ToggleQueryPreviewPanel();
+      Close();
     });
 
     cm.AddButton(Icon("\uF057") + "Close Graph", new Color(1, 0.5f, 0.5f) / 2, () =>

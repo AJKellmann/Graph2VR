@@ -69,9 +69,12 @@ namespace Dweiss
     public string initialSparqlURI = "";
     public bool startWithSingleNode = false;
     public bool searchOnKeypress = false;
+    public bool queryLoggingEnabled = false;
     public float playerHeight = 1.8f;
+    public float modelNodeSize = 0.75f;
 
     public string[] imagePredicates = { "http://xmlns.com/foaf/0.1/depiction", "http://xmlns.com/foaf/0.1/Image", "http://xmlns.com/foaf/0.1/thumbnail", "http://dbpedia.org/property/photo" };
+    public string[] modelPredicates = { "http://graph2vr.org/model", "http://graph2vr.org/mesh" };
 
     public string[] infopanelPredicates = { "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "http://www.w3.org/2000/01/rdf-schema#label" };
 

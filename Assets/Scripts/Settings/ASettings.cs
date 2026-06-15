@@ -7,6 +7,8 @@
  *******************************************************/
 using UnityEngine;
 using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Dweiss
 {
@@ -103,6 +105,7 @@ namespace Dweiss
         if (log) Debug.Log("Load file " + json);
         try
         {
+          json = NormalizeReadableStringBlocks(json);
           JsonUtility.FromJsonOverwrite(json, this);
         }
         catch (System.Exception e)
@@ -117,6 +120,50 @@ namespace Dweiss
         return false;
       }
       return true;
+    }
+
+    private string NormalizeReadableStringBlocks(string json)
+    {
+      if (string.IsNullOrEmpty(json))
+      {
+        return json;
+      }
+
+      return Regex.Replace(
+        json,
+        "\"(?<name>[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"\\s*:\\s*\"\"\"(?<value>.*?)\"\"\"",
+        match => "\"" + match.Groups["name"].Value + "\": \"" + EscapeJsonString(match.Groups["value"].Value) + "\"",
+        RegexOptions.Singleline);
+    }
+
+    private string EscapeJsonString(string value)
+    {
+      StringBuilder builder = new StringBuilder();
+      foreach (char character in value)
+      {
+        switch (character)
+        {
+          case '\\':
+            builder.Append("\\\\");
+            break;
+          case '"':
+            builder.Append("\\\"");
+            break;
+          case '\n':
+            builder.Append("\\n");
+            break;
+          case '\r':
+            builder.Append("\\r");
+            break;
+          case '\t':
+            builder.Append("\\t");
+            break;
+          default:
+            builder.Append(character);
+            break;
+        }
+      }
+      return builder.ToString();
     }
     #endregion
     #region Unity editor

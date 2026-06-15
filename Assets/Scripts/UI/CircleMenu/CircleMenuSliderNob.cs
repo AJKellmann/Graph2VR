@@ -4,6 +4,7 @@ public class CircleMenuSliderNob : MonoBehaviour
 {
    GameObject laserPointer;
    GameObject controler;
+   Transform sliderControlPoint;
    CircleMenu menu;
    public LayerMask layerMask;
 
@@ -12,6 +13,7 @@ public class CircleMenuSliderNob : MonoBehaviour
       this.menu = menu;
       controler = GameObject.FindGameObjectWithTag("RightController");
       laserPointer = GameObject.FindGameObjectWithTag("LaserPointer");
+      sliderControlPoint = laserPointer != null ? laserPointer.transform : controler.transform;
    }
 
    // Update is called once per frame
@@ -46,7 +48,7 @@ public class CircleMenuSliderNob : MonoBehaviour
 
       if (ControlerInput.instance.gripRight)
       {
-         menu.sliderValue = positionToSliderValue(controler.transform.position);
+         menu.sliderValue = positionToSliderValue(sliderControlPoint.position);
       }
       else
       {

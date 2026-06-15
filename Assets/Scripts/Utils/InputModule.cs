@@ -62,7 +62,7 @@ public class InputModule : BaseInputModule
     ExecuteEvents.Execute(Data.pointerPress, Data, ExecuteEvents.pointerUpHandler);
 
     GameObject pointerRelease = ExecuteEvents.GetEventHandler<IPointerClickHandler>(CurrentSelectedObject);
-    if (Data.pointerPress = pointerRelease)
+    if (Data.pointerPress == pointerRelease)
     {
       ExecuteEvents.Execute(Data.pointerPress, Data, ExecuteEvents.pointerClickHandler);
     }

@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using VDS.RDF;
@@ -27,10 +29,17 @@ public class Graph : MonoBehaviour
   public List<Graph> subGraphs = new();
   public Graph parentGraph = null;
   public string creationQuery = "";
-  public enum Layout : ushort { FruchtermanReingold = 0, SpatialGrid2D, HierarchicalView, ClassHierarchy, SemanticPlanes }
+  public enum Layout : ushort { FruchtermanReingold = 0, SpatialGrid2D, HierarchicalView, ClassHierarchy, SemanticPlanes, BarnesHut3D, LouvainCluster3D }
   public Layout currentLayout = Layout.FruchtermanReingold;
 
   public ApplicationState.GraphState graphState;
+  private Canvas queryPreviewPanel;
+
+  private class GroupedQueryResult
+  {
+    public string key;
+    public List<SparqlResult> rows = new();
+  }
 
   public Graph QuerySimilarWithTriples(string triples, Vector3 position, Quaternion rotation, Graph graphToUse = null, bool additiveMode = false)
   {
@@ -129,6 +138,19 @@ public class Graph : MonoBehaviour
   {
     UnityMainThreadDispatcher.Instance().Enqueue(() =>
     {
+      if (results == null)
+      {
+        Debug.LogWarning("QuerySimilarPatterns returned no result set.");
+        return;
+      }
+
+      List<SparqlResult> sortedResults = SortQueryResults(results);
+      if (groupBy.Count > 0)
+      {
+        BuildGroupedQueryResults(results, query, triples);
+        return;
+      }
+
       Graph additiveModeGraph = null;
       if (additiveMode)
       {
@@ -141,47 +163,9 @@ public class Graph : MonoBehaviour
 
       Quaternion rotation = Camera.main.transform.rotation;
       Vector3 offset = transform.position + (rotation * new Vector3(0, 0, 1 + boundingSphere.size));
-      foreach (SparqlResult result in results)
+      foreach (SparqlResult result in sortedResults)
       {
-        string preSelectedQuery = "";
-        foreach (string line in triples.Split(" .\n"))
-        {
-          if (line == "") continue;
-          Edge selectedEdge = null;
-
-          foreach (Edge selected in selection)
-          {
-            string selectedLine = selected.GetQueryString();
-            if ((line + " .\n").Trim().CompareTo(selectedLine.Trim()) == 0)
-            {
-              selectedEdge = selected;
-            }
-          }
-
-          bool removeLine = false;
-          if (selectedEdge != null)
-          {
-            if (selectedEdge.isOptional)
-            {
-              bool optionalExistsInResult = result.HasBoundValue("optionalTripelExists" + selectedEdge.optionalTripleCounter);
-              if (!optionalExistsInResult) removeLine = true;
-            }
-          }
-
-          if (!removeLine)
-          {
-            preSelectedQuery += line + " .\n";
-          }
-        }
-
-        foreach (var node in result)
-        {
-          if (RealNodeValue(node.Value) != "")
-          {
-            preSelectedQuery = preSelectedQuery.Replace("?" + node.Key, RealNodeValue(node.Value));
-          }
-        }
-
+        string preSelectedQuery = BuildPreSelectedQuery(triples, result);
         Graph newGraph = QuerySimilarWithTriples(preSelectedQuery, offset, Quaternion.identity, additiveModeGraph, additiveMode);
         if (!additiveMode)
         {
@@ -190,6 +174,302 @@ public class Graph : MonoBehaviour
         }
       }
     });
+  }
+
+  public string GetSparqlQueryPreview()
+  {
+    if (selection == null || selection.Count == 0)
+    {
+      return "# Select one or more triples to preview a SPARQL query.";
+    }
+
+    bool selectionContainsOptional = selection.Exists(edge => edge.isOptional);
+    if (selectionContainsOptional || groupBy.Count > 0 || orderBy.Count > 0)
+    {
+      return QueryService.Instance.GetSimilarPatternsQuery(GetTriplesStringWithOptional(), orderBy, groupBy);
+    }
+
+    string triples = GetTriplesString();
+    return $@"
+      {QueryService.PREFIXES}
+      construct {{
+        {triples}
+      }} where {{
+        {triples}
+      }} LIMIT {QueryService.Instance.queryLimit}";
+  }
+
+  public void ToggleQueryPreviewPanel()
+  {
+    if (queryPreviewPanel == null)
+    {
+      queryPreviewPanel = Instantiate<Canvas>(Resources.Load<Canvas>("UI/ContextMenu"));
+      queryPreviewPanel.renderMode = RenderMode.WorldSpace;
+      queryPreviewPanel.worldCamera = GameObject.Find("Controller (right)").GetComponentInChildren<Camera>();
+      queryPreviewPanel.gameObject.AddComponent<PanelGrabInteraction>();
+      QueryPreviewPanel preview = queryPreviewPanel.gameObject.AddComponent<QueryPreviewPanel>();
+      preview.Initiate(this);
+    }
+    else
+    {
+      queryPreviewPanel.gameObject.SetActive(!queryPreviewPanel.gameObject.activeSelf);
+    }
+
+    PositionQueryPreviewPanel();
+  }
+
+  private void PositionQueryPreviewPanel()
+  {
+    queryPreviewPanel.transform.SetParent(null);
+    queryPreviewPanel.transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);
+    queryPreviewPanel.transform.SetParent(transform, true);
+    queryPreviewPanel.transform.position = transform.position;
+    queryPreviewPanel.transform.rotation = Quaternion.LookRotation(queryPreviewPanel.transform.position - Camera.main.transform.position, Vector3.up);
+    queryPreviewPanel.transform.position += queryPreviewPanel.transform.rotation * new Vector3(0.8f, 0.2f, 0);
+  }
+
+  private void BuildGroupedQueryResults(SparqlResultSet results, string query, string triples)
+  {
+    Quaternion rotation = Camera.main.transform.rotation;
+    Vector3 offset = transform.position + (rotation * new Vector3(0, 0, 1 + boundingSphere.size));
+    Vector3 groupStep = rotation * new Vector3(0, 0, 0.5f);
+    List<GroupedQueryResult> groupedResults = GroupQueryResults(results);
+
+    foreach (GroupedQueryResult group in groupedResults)
+    {
+      Graph groupGraph = Main.instance.CreateGraph();
+      groupGraph.parentGraph = this;
+      subGraphs.Add(groupGraph);
+      groupGraph.transform.position = offset;
+      groupGraph.transform.rotation = Quaternion.identity;
+      groupGraph.creationQuery = query;
+
+      IGraph resultGraph = BuildGraphFromResults(group.rows);
+      if (resultGraph.Triples.Any())
+      {
+        groupGraph.BuildByIGraph(resultGraph);
+        SetupNewGraph(groupGraph, query, rotation, results);
+        offset += groupStep;
+      }
+      else
+      {
+        Destroy(groupGraph.gameObject);
+        subGraphs.Remove(groupGraph);
+      }
+    }
+  }
+
+  private IGraph BuildGraphFromResults(List<SparqlResult> results)
+  {
+    IGraph resultGraph = new VDS.RDF.Graph();
+    resultGraph.NamespaceMap.Import(QueryService.Instance.defaultNamespace);
+
+    foreach (SparqlResult result in results)
+    {
+      foreach (Edge edge in selection)
+      {
+        if (edge.isOptional && !result.HasBoundValue("optionalTripelExists" + edge.optionalTripleCounter))
+        {
+          continue;
+        }
+
+        INode subject = ResolveQueryNode(edge.displaySubject, result);
+        INode predicate = ResolveQueryPredicate(edge, result);
+        INode graphObject = ResolveQueryNode(edge.displayObject, result);
+
+        if (subject == null || predicate == null || graphObject == null)
+        {
+          continue;
+        }
+
+        resultGraph.Assert(new Triple(CopyNodeToGraph(subject, resultGraph), CopyNodeToGraph(predicate, resultGraph), CopyNodeToGraph(graphObject, resultGraph)));
+      }
+    }
+
+    return resultGraph;
+  }
+
+  private INode CopyNodeToGraph(INode node, IGraph graph)
+  {
+    return Tools.CopyNode(node, graph);
+  }
+
+  private INode ResolveQueryNode(Node node, SparqlResult result)
+  {
+    if (!node.IsVariable)
+    {
+      return node.graphNode;
+    }
+    return ResultNode(result, node.GetQueryLabel());
+  }
+
+  private INode ResolveQueryPredicate(Edge edge, SparqlResult result)
+  {
+    if (!edge.IsVariable)
+    {
+      return edge.graphPredicate;
+    }
+    INode predicate = ResultNode(result, edge.variableName);
+    return predicate != null && predicate.NodeType == NodeType.Uri ? predicate : null;
+  }
+
+  private List<GroupedQueryResult> GroupQueryResults(SparqlResultSet results)
+  {
+    Dictionary<string, GroupedQueryResult> resultByGroupKey = new();
+    foreach (SparqlResult result in results)
+    {
+      string groupKey = GroupKey(result);
+      if (!resultByGroupKey.TryGetValue(groupKey, out GroupedQueryResult group))
+      {
+        group = new GroupedQueryResult { key = groupKey };
+        resultByGroupKey.Add(groupKey, group);
+      }
+      group.rows.Add(result);
+    }
+
+    List<GroupedQueryResult> groupedResults = resultByGroupKey.Values.ToList();
+    foreach (GroupedQueryResult group in groupedResults)
+    {
+      group.rows.Sort(CompareQueryResults);
+    }
+    groupedResults.Sort(CompareGroupedQueryResults);
+    return groupedResults;
+  }
+
+  private List<SparqlResult> SortQueryResults(SparqlResultSet results)
+  {
+    List<SparqlResult> sortedResults = results.ToList();
+    sortedResults.Sort(CompareQueryResults);
+    return sortedResults;
+  }
+
+  private int CompareQueryResults(SparqlResult left, SparqlResult right)
+  {
+    foreach (string group in groupBy)
+    {
+      int compare = String.Compare(ResultValue(left, group), ResultValue(right, group), StringComparison.OrdinalIgnoreCase);
+      if (compare != 0) return compare;
+    }
+
+    foreach (DictionaryEntry order in orderBy)
+    {
+      int compare = CompareResultValues(left, right, order.Key.ToString());
+      if (compare != 0)
+      {
+        return order.Value.ToString() == "DESC" ? -compare : compare;
+      }
+    }
+
+    return 0;
+  }
+
+  private int CompareGroupedQueryResults(GroupedQueryResult left, GroupedQueryResult right)
+  {
+    SparqlResult leftFirst = left.rows.FirstOrDefault();
+    SparqlResult rightFirst = right.rows.FirstOrDefault();
+    if (leftFirst != null && rightFirst != null)
+    {
+      foreach (DictionaryEntry order in orderBy)
+      {
+        int compare = CompareResultValues(leftFirst, rightFirst, order.Key.ToString());
+        if (compare != 0)
+        {
+          return order.Value.ToString() == "DESC" ? -compare : compare;
+        }
+      }
+    }
+
+    return String.Compare(left.key, right.key, StringComparison.OrdinalIgnoreCase);
+  }
+
+  private int CompareResultValues(SparqlResult left, SparqlResult right, string variable)
+  {
+    INode leftValue = ResultNode(left, variable);
+    INode rightValue = ResultNode(right, variable);
+
+    if (TryGetLiteralDouble(leftValue, out double leftNumber) && TryGetLiteralDouble(rightValue, out double rightNumber))
+    {
+      return leftNumber.CompareTo(rightNumber);
+    }
+
+    if (TryGetLiteralDate(leftValue, out DateTime leftDate) && TryGetLiteralDate(rightValue, out DateTime rightDate))
+    {
+      return leftDate.CompareTo(rightDate);
+    }
+
+    return String.Compare(ResultValue(left, variable), ResultValue(right, variable), StringComparison.OrdinalIgnoreCase);
+  }
+
+  private bool TryGetLiteralDouble(INode node, out double value)
+  {
+    value = 0;
+    return node is ILiteralNode literal
+      && double.TryParse(literal.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+  }
+
+  private bool TryGetLiteralDate(INode node, out DateTime value)
+  {
+    value = default;
+    return node is ILiteralNode literal
+      && DateTime.TryParse(literal.Value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out value);
+  }
+
+  private string GroupKey(SparqlResult result)
+  {
+    return groupBy.Aggregate("", (key, variable) => key + "|" + ResultValue(result, variable));
+  }
+
+  private string ResultValue(SparqlResult result, string variable)
+  {
+    INode value = ResultNode(result, variable);
+    return value != null ? value.ToString() : "";
+  }
+
+  private INode ResultNode(SparqlResult result, string variable)
+  {
+    string variableName = variable.TrimStart('?');
+    return result.TryGetValue(variableName, out INode value) ? value : null;
+  }
+
+  private string BuildPreSelectedQuery(string triples, SparqlResult result)
+  {
+    string preSelectedQuery = "";
+    foreach (string line in triples.Split(" .\n"))
+    {
+      if (line == "") continue;
+      Edge selectedEdge = null;
+
+      foreach (Edge selected in selection)
+      {
+        string selectedLine = selected.GetQueryString();
+        if ((line + " .\n").Trim().CompareTo(selectedLine.Trim()) == 0)
+        {
+          selectedEdge = selected;
+        }
+      }
+
+      bool removeLine = false;
+      if (selectedEdge != null && selectedEdge.isOptional)
+      {
+        bool optionalExistsInResult = result.HasBoundValue("optionalTripelExists" + selectedEdge.optionalTripleCounter);
+        if (!optionalExistsInResult) removeLine = true;
+      }
+
+      if (!removeLine)
+      {
+        preSelectedQuery += line + " .\n";
+      }
+    }
+
+    foreach (var node in result)
+    {
+      if (RealNodeValue(node.Value) != "")
+      {
+        preSelectedQuery = preSelectedQuery.Replace("?" + node.Key, RealNodeValue(node.Value));
+      }
+    }
+
+    return preSelectedQuery;
   }
 
   private void SetupNewGraph(Graph newGraph, string query, Quaternion rotation, SparqlResultSet results)
@@ -285,10 +565,20 @@ public class Graph : MonoBehaviour
     {
       if (state != null)
       {
-        //Todo: Fix this error - it still occurs sometimes (graph = null)
-        Debug.Log(graph);
-        Debug.Log(state);
-        Debug.Log(((AsyncError)state).Error);
+        if (state is AsyncError asyncError)
+        {
+          Debug.LogWarning(asyncError.Error);
+        }
+        else
+        {
+          Debug.LogWarning($"ExpandGraph returned state: {state}");
+        }
+      }
+
+      if (graph == null || graph.Triples == null || graph.Triples.Count == 0)
+      {
+        Debug.LogWarning($"ExpandGraph returned no data triples. Node: {node.uri}, predicate: {uri}, direction: {(isOutgoingLink ? "outgoing" : "incoming")}, limit: {QueryService.Instance.queryLimit}");
+        return;
       }
 
       // To draw new elements to unity we need to be on the main Thread
@@ -303,13 +593,18 @@ public class Graph : MonoBehaviour
         {
           if (nodeToRefine.graphNode.NodeType != NodeType.Uri) continue;
 
-          Dictionary<string, List<string>> results = QueryService.Instance.RefineNode(refinmentGraph, nodeToRefine.uri);
-          List<string> images = results["images"];
-          if (results["labels"].Count > 0)
+          if (refinmentGraph != null)
           {
-            nodeToRefine.SetLabel(results["labels"].First());
+            Dictionary<string, List<string>> results = QueryService.Instance.RefineNode(refinmentGraph, nodeToRefine.uri);
+            List<string> images = results["images"];
+            List<string> models = results["models"];
+            if (results["labels"].Count > 0)
+            {
+              nodeToRefine.SetLabel(results["labels"].First());
+            }
+            nodeToRefine.SetImageFromList(images);
+            nodeToRefine.SetModelFromList(models);
           }
-          nodeToRefine.SetImageFromList(images);
         }
       });
     }));
@@ -427,12 +722,15 @@ public class Graph : MonoBehaviour
 
     foreach (INode node in iGraph.Nodes)
     {
-      CreateNode(node.ToString(), node);
+      if (!additiveMode || IsNonExistantNode(node))
+      {
+        CreateNode(node.ToString(), node);
+      }
     }
 
     foreach (Triple triple in iGraph.Triples)
     {
-      CreateEdge(triple.Subject, triple.Predicate, triple.Object);
+      AddEdges(triple);
     }
 
     if (!loading) layout.CalculateLayout();
@@ -757,19 +1055,32 @@ public class Graph : MonoBehaviour
         SwitchLayout<SemanticPlanes>();
         boundingSphere.isFlat = true;
         break;
+      case Layout.BarnesHut3D:
+        SwitchLayout<BarnesHut3D>();
+        boundingSphere.isFlat = false;
+        break;
+      case Layout.LouvainCluster3D:
+        SwitchLayout<LouvainCluster3D>();
+        boundingSphere.isFlat = false;
+        break;
     }
     currentLayout = layout;
     if (!loading) this.layout.CalculateLayout();
   }
 
-  private void SwitchLayout<T>()
+  private void SwitchLayout<T>() where T : BaseLayoutAlgorithm
   {
     foreach (BaseLayoutAlgorithm baseLayout in GetComponents<BaseLayoutAlgorithm>())
     {
+      baseLayout.Stop();
       baseLayout.enabled = false;
     }
 
-    BaseLayoutAlgorithm activeLayout = GetComponent<T>() as BaseLayoutAlgorithm;
+    BaseLayoutAlgorithm activeLayout = GetComponent<T>();
+    if (activeLayout == null)
+    {
+      activeLayout = gameObject.AddComponent<T>();
+    }
     layout = activeLayout;
     activeLayout.enabled = true;
   }

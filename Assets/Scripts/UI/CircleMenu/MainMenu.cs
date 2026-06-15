@@ -1,4 +1,5 @@
 using Dweiss;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -47,6 +48,19 @@ public class MainMenu : BaseMenu
     cm.ReBuild();
   }
 
+  private void RefreshMainMenuNextFrame()
+  {
+    float preservedSliderValue = cm.sliderValue;
+    cm.Close();
+    StartCoroutine(PopulateMainMenuNextFrame(preservedSliderValue));
+  }
+
+  private IEnumerator PopulateMainMenuNextFrame(float preservedSliderValue)
+  {
+    yield return null;
+    PopulateMainMenu();
+    cm.sliderValue = preservedSliderValue;
+  }
   private void PopulateMainDisplaySubMenus()
   {
     // We are in a sub menu
@@ -381,8 +395,19 @@ public class MainMenu : BaseMenu
     cm.AddButton(Settings.Instance.searchOnKeypress ? Icon("\uF11C") + "Use: Search on submit" : Icon("\uF11C") + "Use: Search on key-press", Color.yellow / 2, () =>
     {
       Settings.Instance.searchOnKeypress = !Settings.Instance.searchOnKeypress;
-      cm.Close();
-      PopulateMainMenu();
+      RefreshMainMenuNextFrame();
+    });
+
+    cm.AddButton(Settings.Instance.queryLoggingEnabled ? Icon("\uF15C") + "Query logging: on" : Icon("\uF15C") + "Query logging: off", Color.yellow / 2, () =>
+    {
+      QuerySessionLogger.SetEnabled(!Settings.Instance.queryLoggingEnabled);
+      RefreshMainMenuNextFrame();
+    });
+
+    cm.AddButton(Icon("\uF56E") + "Export query log", defaultMenuColor, () =>
+    {
+      QuerySessionLogger.Export();
+      Close();
     });
 
     if (isQuestController)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -10,11 +11,13 @@ public class ApplicationState
   [Serializable]
   public class State
   {
-    public int saveVersion = 1;
+    public int saveVersion = 3;
     public long optionalCounter;
 
     public List<GraphState> graphs = new List<GraphState>();
     public List<EdgeState> crossGraphEdges = new List<EdgeState>();
+    public List<QuerySessionLogger.QueryLogEntry> queryLogEntries = new List<QuerySessionLogger.QueryLogEntry>();
+    public bool queryLoggingEnabled;
   }
 
   [Serializable]
@@ -35,6 +38,8 @@ public class ApplicationState
     public string creationQuery;
     public int variableNameGeneratorCounter;
     public IDictionary<string, string> variableNameGeneratorDictionary;
+    public List<OrderByState> orderBy = new List<OrderByState>();
+    public List<string> groupBy = new List<string>();
 
     //SemanticPlanes
     public float semanticPlanesLookDirectionX = 0;
@@ -46,6 +51,13 @@ public class ApplicationState
 
     public List<EdgeState> edges = new List<EdgeState>();
     public List<NodeState> unconnectedNodes = new List<NodeState>();
+  }
+
+  [Serializable]
+  public class OrderByState
+  {
+    public string variable;
+    public string direction;
   }
 
   [Serializable]
@@ -89,6 +101,9 @@ public class ApplicationState
       positionX = node.transform.position.x;
       positionY = node.transform.position.y;
       positionZ = node.transform.position.z;
+      rotationX = node.transform.rotation.eulerAngles.x;
+      rotationY = node.transform.rotation.eulerAngles.y;
+      rotationZ = node.transform.rotation.eulerAngles.z;
       uri = node.uri;
       label = node.label;
 
@@ -110,11 +125,16 @@ public class ApplicationState
         imageWidth = texture.width;
         imageHeight = texture.height;
       }
+      modelUri = node.GetModelUri();
+      modelDisplaySize = node.GetModelDisplaySize();
     }
 
     public float positionX;
     public float positionY;
     public float positionZ;
+    public float rotationX;
+    public float rotationY;
+    public float rotationZ;
     public string uri;
     public string label;
     public string literalDateType = "";
@@ -125,6 +145,8 @@ public class ApplicationState
     public byte[] image;
     public int imageWidth;
     public int imageHeight;
+    public string modelUri = "";
+    public float modelDisplaySize = -1f;
     public string nodeOfExternalGraphGUID = "";
   }
 
@@ -132,6 +154,8 @@ public class ApplicationState
   {
     State state = new State();
     state.optionalCounter = Edge.optionalCounter;
+    state.queryLogEntries = QuerySessionLogger.GetEntries();
+    state.queryLoggingEnabled = Dweiss.Settings.Instance.queryLoggingEnabled;
     GameObject[] graphs = GameObject.FindGameObjectsWithTag("Graph");
     foreach (GameObject graph in graphs)
     {
@@ -159,6 +183,15 @@ public class ApplicationState
     state.layout = ((ushort)graph.GetLayout());
     state.variableNameGeneratorCounter = graph.variableNameManager.GetCounter();
     state.variableNameGeneratorDictionary = graph.variableNameManager.GetDictionary();
+    foreach (DictionaryEntry order in graph.orderBy)
+    {
+      state.orderBy.Add(new OrderByState
+      {
+        variable = order.Key.ToString(),
+        direction = order.Value.ToString()
+      });
+    }
+    state.groupBy.AddRange(graph.groupBy);
 
     SemanticPlanes plane = graph.GetComponent<SemanticPlanes>();
     Quaternion direction = plane.lookDirection;
@@ -220,10 +253,20 @@ public class ApplicationState
   }
 
   static List<Graph> graphs = new List<Graph>();
+  static Dictionary<string, Node> loadedNodes = new Dictionary<string, Node>();
   private static void LoadState(State state)
   {
     graphs.Clear();
+    loadedNodes.Clear();
     Edge.optionalCounter = state.optionalCounter;
+    if (state.queryLogEntries != null)
+    {
+      QuerySessionLogger.Restore(state.queryLogEntries);
+    }
+    if (state.saveVersion >= 2)
+    {
+      Dweiss.Settings.Instance.queryLoggingEnabled = state.queryLoggingEnabled;
+    }
     foreach (GraphState graphState in state.graphs)
     {
       graphs.Add(LoadGraphState(graphState));
@@ -267,6 +310,19 @@ public class ApplicationState
     graph.transform.rotation = Quaternion.Euler(state.rotationX, state.rotationY, state.rotationZ);
     graph.creationQuery = state.creationQuery;
     graph.SetLayout((Graph.Layout)state.layout);
+    graph.orderBy.Clear();
+    if (state.orderBy != null)
+    {
+      foreach (OrderByState order in state.orderBy)
+      {
+        graph.orderBy[order.variable] = order.direction;
+      }
+    }
+    graph.groupBy.Clear();
+    if (state.groupBy != null)
+    {
+      graph.groupBy.AddRange(state.groupBy);
+    }
 
     SemanticPlanes plane = graph.GetComponent<SemanticPlanes>();
     plane.lookDirection = Quaternion.Euler(state.semanticPlanesLookDirectionX, state.semanticPlanesLookDirectionY, state.semanticPlanesLookDirectionZ);
@@ -331,8 +387,7 @@ public class ApplicationState
     edge.optionalTripleCounter = state.optionalTripleCounter;
     if (state.isVariable)
     {
-      edge.MakeVariable();
-      edge.variableName = state.variableName;
+      edge.RestoreVariable(state.variableName);
     }
     return edge;
   }
@@ -340,7 +395,15 @@ public class ApplicationState
   private static Node LoadNodeState(NodeState state, Graph graph)
   {
     string nodeText = state.uri == "" ? state.label : state.uri;
+    string key = NodeStateKey(state, graph);
+    if (loadedNodes.TryGetValue(key, out Node loadedNode))
+    {
+      return loadedNode;
+    }
+
     Node node = graph.CreateNode(nodeText, new Vector3(state.positionX, state.positionY, state.positionZ), state.literalDateType, state.literalLang);
+    loadedNodes[key] = node;
+    node.transform.rotation = Quaternion.Euler(state.rotationX, state.rotationY, state.rotationZ);
     node.LockPosition = state.isLocked;
     node.cachedNodeLabel = state.cachedNodeLabel;
     if (state.image != null)
@@ -349,12 +412,26 @@ public class ApplicationState
       image.LoadImage(state.image);
       node.SetTexture(image, state.imageWidth, state.imageHeight);
     }
+    if (!string.IsNullOrEmpty(state.modelUri))
+    {
+      if (state.modelDisplaySize > 0f)
+      {
+        node.SetModelDisplaySize(state.modelDisplaySize);
+      }
+      node.SetModelFromList(new List<string> { state.modelUri });
+    }
     if (state.isVariable)
     {
       node.MakeVariable();
     }
     node.SetLabel(state.label);
     return node;
+  }
+
+  private static string NodeStateKey(NodeState state, Graph graph)
+  {
+    string nodeText = state.uri == "" ? state.label : state.uri;
+    return graph.GUID + "|" + nodeText + "|" + state.literalDateType + "|" + state.literalLang;
   }
 
   private static string FileName(string name)

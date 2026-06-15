@@ -59,6 +59,11 @@ public class SemanticPlanes : BaseLayoutAlgorithm
         // probably a variable
         string variableName = "";
         bool stop = false;
+        if (variableNameLookup == null)
+        {
+          continue;
+        }
+
         foreach (SparqlResult result in variableNameLookup)
         {
           if (stop) break;
