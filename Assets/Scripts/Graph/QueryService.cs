@@ -104,6 +104,8 @@ public class QueryService : MonoBehaviour
   private string GetSimpleExpandGraphQuery(Node node, string uri, bool isOutgoingLink)
   {
     string value = node.graph.RealNodeValue(node.graphNode);
+    string anchorValue = IsBlankNode(node) ? "?graph2vrAnchor" : value;
+    string anchorFilter = GetBlankNodeFilter(node, "?graph2vrAnchor");
     if (isOutgoingLink)
     {
 
@@ -111,9 +113,10 @@ public class QueryService : MonoBehaviour
       return $@"
             {PREFIXES}
             construct {{
-                {value} <{uri}> ?object .
+                {anchorValue} <{uri}> ?object .
             }} where {{
-                {value} <{uri}> ?object .
+                {anchorValue} <{uri}> ?object .
+                {anchorFilter}
             }} 
             LIMIT {queryLimit}";
     }
@@ -122,9 +125,10 @@ public class QueryService : MonoBehaviour
       return $@"
             {PREFIXES}
             construct {{
-                ?subject <{uri}> {value} .
+                ?subject <{uri}> {anchorValue} .
             }} where {{
-                ?subject <{uri}> {value}
+                ?subject <{uri}> {anchorValue}
+                {anchorFilter}
             }}  
             LIMIT {queryLimit}";
     }
@@ -134,6 +138,8 @@ public class QueryService : MonoBehaviour
   private string GetExpandGraphQuery(Node node, string uri, bool isOutgoingLink)
   {
     string value = node.graph.RealNodeValue(node.graphNode);
+    string anchorValue = IsBlankNode(node) ? "?graph2vrAnchor" : value;
+    string anchorFilter = GetBlankNodeFilter(node, "?graph2vrAnchor");
 
     if (isOutgoingLink)
     {
@@ -142,13 +148,14 @@ public class QueryService : MonoBehaviour
       return $@"
         {PREFIXES}
         construct {{
-            {value} <{uri}> ?object .
+            {anchorValue} <{uri}> ?object .
             ?object ?graph2vrlabel ?label .
             ?object ?graph2vrimage ?image .
             ?object ?graph2vrmodel ?model .
             ?object a ?type .
         }} where {{
-            {value} <{uri}> ?object .
+            {anchorValue} <{uri}> ?object .
+            {anchorFilter}
             {GetOptionalGraphQuery("?object")}
         }} 
         LIMIT {queryLimit}";
@@ -158,17 +165,33 @@ public class QueryService : MonoBehaviour
       return $@"
         {PREFIXES}
         construct {{
-            ?subject <{uri}> {value} .
+            ?subject <{uri}> {anchorValue} .
             ?subject ?graph2vrlabel ?label .
             ?subject ?graph2vrimage  ?image .
             ?subject ?graph2vrmodel ?model .
             ?subject a ?type .
         }} where {{
-            ?subject <{uri}> {value}
+            ?subject <{uri}> {anchorValue}
+            {anchorFilter}
             {GetOptionalGraphQuery("?subject")}
         }}  
         LIMIT {queryLimit}";
     }
+  }
+
+  private bool IsBlankNode(Node node)
+  {
+    return node != null && node.graphNode != null && node.graphNode.NodeType == NodeType.Blank;
+  }
+
+  private string GetBlankNodeFilter(Node node, string variableName)
+  {
+    if (!IsBlankNode(node))
+    {
+      return "";
+    }
+
+    return $"FILTER(isBlank({variableName})).";
   }
 
   private string GetOptionalGraphQuery(string variable)

@@ -20,6 +20,7 @@ public static class SparqlProviderFactory
       case "allegrograph":
         return CreateAllegroGraphProvider(settings);
       case "graphdb":
+        return CreateGraphDbProvider(settings);
       case "virtuoso":
       case "genericsparql":
       default:
@@ -100,5 +101,65 @@ public static class SparqlProviderFactory
     }
 
     return new StorageSparqlProvider(connector, AllegroGraph);
+  }
+
+  private static ISparqlProvider CreateGraphDbProvider(Settings settings)
+  {
+    string repositoryId = settings.repositoryId;
+    string serverEndpoint = settings.sparqlEndpoint;
+
+    if (string.IsNullOrEmpty(repositoryId))
+    {
+      TryExtractRepositoryEndpoint(settings.sparqlEndpoint, out serverEndpoint, out repositoryId);
+    }
+
+    if (string.IsNullOrEmpty(repositoryId))
+    {
+      Debug.LogWarning("GraphDB provider selected without repositoryId. Falling back to generic SPARQL endpoint.");
+      return CreateRemoteEndpointProvider(settings, GraphDB);
+    }
+
+    SesameHttpProtocolVersion6Connector connector = string.IsNullOrEmpty(settings.username)
+      ? new SesameHttpProtocolVersion6Connector(serverEndpoint, repositoryId)
+      : new SesameHttpProtocolVersion6Connector(serverEndpoint, repositoryId, settings.username, settings.password);
+
+    return new StorageSparqlProvider(connector, GraphDB);
+  }
+
+  private static bool TryExtractRepositoryEndpoint(string endpoint, out string serverEndpoint, out string repositoryId)
+  {
+    serverEndpoint = endpoint;
+    repositoryId = "";
+
+    Uri uri;
+    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out uri))
+    {
+      return false;
+    }
+
+    string path = uri.AbsolutePath;
+    int repositoriesIndex = path.IndexOf("/repositories/", StringComparison.OrdinalIgnoreCase);
+    if (repositoriesIndex < 0)
+    {
+      return false;
+    }
+
+    int repositoryStart = repositoriesIndex + "/repositories/".Length;
+    int repositoryEnd = path.IndexOf('/', repositoryStart);
+    string encodedRepositoryId = repositoryEnd < 0
+      ? path.Substring(repositoryStart)
+      : path.Substring(repositoryStart, repositoryEnd - repositoryStart);
+
+    repositoryId = Uri.UnescapeDataString(encodedRepositoryId);
+    string serverPath = path.Substring(0, repositoriesIndex);
+    UriBuilder builder = new UriBuilder(uri)
+    {
+      Path = serverPath,
+      Query = "",
+      Fragment = ""
+    };
+    serverEndpoint = builder.Uri.ToString().TrimEnd('/');
+
+    return !string.IsNullOrEmpty(repositoryId);
   }
 }

@@ -82,10 +82,27 @@ public class Graph : MonoBehaviour
     {
       NodeType.GraphLiteral or NodeType.Literal => GetLiteralValue(node),
       NodeType.Uri => $"<{GetUriNodeValue(node)}>",
-      NodeType.Blank => "_:blankNode",
+      NodeType.Blank => GetBlankNodeValue(node),
       NodeType.Variable => (node as IVariableNode).VariableName,
       _ => "",
     };
+  }
+
+  private string GetBlankNodeValue(INode node)
+  {
+    IBlankNode blankNode = node as IBlankNode;
+    string internalId = blankNode?.InternalID;
+    if (string.IsNullOrEmpty(internalId))
+    {
+      internalId = "blankNode";
+    }
+
+    string safeId = Regex.Replace(internalId, @"[^A-Za-z0-9_]", "_");
+    if (!Regex.IsMatch(safeId, @"^[A-Za-z_]"))
+    {
+      safeId = "b" + safeId;
+    }
+    return "_:" + safeId;
   }
 
   private string GetLiteralValue(INode node)
