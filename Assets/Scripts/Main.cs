@@ -79,7 +79,9 @@ public class Main : MonoBehaviour
   {
     GameObject clone = Instantiate(graphPrefab);
     clone.transform.position = new Vector3(0, 2, 0);
-    return clone.GetComponent<Graph>();
+    Graph graph = clone.GetComponent<Graph>();
+    graph.SetLayout(Graph.Layout.BarnesHut3D);
+    return graph;
   }
 
   public Graph FindClosestGraphOrCreateNewGraph(Vector3 position)

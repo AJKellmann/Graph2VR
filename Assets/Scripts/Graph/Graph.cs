@@ -31,7 +31,7 @@ public class Graph : MonoBehaviour
   public Graph parentGraph = null;
   public string creationQuery = "";
   public enum Layout : ushort { FruchtermanReingold = 0, SpatialGrid2D, HierarchicalView, ClassHierarchy, SemanticPlanes, BarnesHut3D, LouvainCluster3D }
-  public Layout currentLayout = Layout.FruchtermanReingold;
+  public Layout currentLayout = Layout.BarnesHut3D;
 
   public ApplicationState.GraphState graphState;
   private Canvas queryPreviewPanel;
@@ -229,7 +229,7 @@ public class Graph : MonoBehaviour
         {triples}
       }} where {{
         {triples}
-      }} LIMIT {QueryService.Instance.queryLimit}";
+      }} {QueryService.Instance.GetLimitClause()}";
   }
 
   public void ToggleQueryPreviewPanel()

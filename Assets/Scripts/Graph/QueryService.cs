@@ -25,6 +25,27 @@ public class QueryService : MonoBehaviour
     prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     prefix skos: <http://www.w3.org/2004/02/skos/core#>";
 
+  public string GetLimitClause()
+  {
+    return queryLimit > 0 ? $"LIMIT {queryLimit}" : "";
+  }
+
+  private string GetSelectedGraphClause()
+  {
+    if (string.IsNullOrEmpty(Settings.Instance.baseURI) || sparqlProvider == null)
+    {
+      return "";
+    }
+
+    string providerName = sparqlProvider.ProviderName;
+    bool providerNeedsInlineGraph =
+      string.Equals(providerName, SparqlProviderFactory.GraphDB, StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(providerName, SparqlProviderFactory.AllegroGraph, StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(providerName, SparqlProviderFactory.Stardog, StringComparison.OrdinalIgnoreCase);
+
+    return providerNeedsInlineGraph ? $"FROM <{Settings.Instance.baseURI}>" : "";
+  }
+
   public INamespaceMapper defaultNamespace = new NamespaceMapper(true);
 
   ISparqlProvider sparqlProvider = null;
@@ -114,11 +135,13 @@ public class QueryService : MonoBehaviour
             {PREFIXES}
             construct {{
                 {anchorValue} <{uri}> ?object .
-            }} where {{
+            }}
+            {GetSelectedGraphClause()}
+            where {{
                 {anchorValue} <{uri}> ?object .
                 {anchorFilter}
             }} 
-            LIMIT {queryLimit}";
+            {GetLimitClause()}";
     }
     else
     {
@@ -126,11 +149,13 @@ public class QueryService : MonoBehaviour
             {PREFIXES}
             construct {{
                 ?subject <{uri}> {anchorValue} .
-            }} where {{
+            }}
+            {GetSelectedGraphClause()}
+            where {{
                 ?subject <{uri}> {anchorValue}
                 {anchorFilter}
             }}  
-            LIMIT {queryLimit}";
+            {GetLimitClause()}";
     }
   }
 
@@ -153,12 +178,14 @@ public class QueryService : MonoBehaviour
             ?object ?graph2vrimage ?image .
             ?object ?graph2vrmodel ?model .
             ?object a ?type .
-        }} where {{
+        }}
+        {GetSelectedGraphClause()}
+        where {{
             {anchorValue} <{uri}> ?object .
             {anchorFilter}
             {GetOptionalGraphQuery("?object")}
         }} 
-        LIMIT {queryLimit}";
+        {GetLimitClause()}";
     }
     else
     {
@@ -170,12 +197,14 @@ public class QueryService : MonoBehaviour
             ?subject ?graph2vrimage  ?image .
             ?subject ?graph2vrmodel ?model .
             ?subject a ?type .
-        }} where {{
+        }}
+        {GetSelectedGraphClause()}
+        where {{
             ?subject <{uri}> {anchorValue}
             {anchorFilter}
             {GetOptionalGraphQuery("?subject")}
         }}  
-        LIMIT {queryLimit}";
+        {GetLimitClause()}";
     }
   }
 
@@ -275,9 +304,11 @@ public class QueryService : MonoBehaviour
             {PREFIXES}
             construct {{
                 {removeOptional(triples)} 
-            }} where {{
+            }}
+            {GetSelectedGraphClause()}
+            where {{
                 {triples} 
-            }} LIMIT {queryLimit}";
+            }} {GetLimitClause()}";
     if (IsConstructSparqlQuery(query))
     {
       ExecuteQuery(query, callback, additiveMode);
@@ -335,13 +366,14 @@ public class QueryService : MonoBehaviour
   {
     string query = $@"
       {PREFIXES}
-      select ?p (STR(COUNT(?o)) AS ?count) (SAMPLE(STR(?label)) AS ?label)
+      select ?p (STR(COUNT(?o)) AS ?count) (SAMPLE(STR(?predicateLabel)) AS ?label)
+      {GetSelectedGraphClause()}
       where {{
         <{URI}> ?p ?o .
         OPTIONAL {{
-          ?p rdfs:label ?label
+          ?p rdfs:label ?predicateLabel .
+          {LanguageFilterString("?predicateLabel")}
         }}
-        {LanguageFilterString("?label")}
       }}
       GROUP BY ?p
       ORDER BY ?label ?p LIMIT 100";
@@ -359,13 +391,14 @@ public class QueryService : MonoBehaviour
   {
     string query = $@"
       {PREFIXES}
-      select ?p (STR(COUNT(?s)) AS ?count) (SAMPLE(STR(?label)) AS ?label)
+      select ?p (STR(COUNT(?s)) AS ?count) (SAMPLE(STR(?predicateLabel)) AS ?label)
+      {GetSelectedGraphClause()}
       where {{ 
         ?s ?p {objectValue} . 
         OPTIONAL {{
-          ?p rdfs:label ?label
+          ?p rdfs:label ?predicateLabel .
+          {LanguageFilterString("?predicateLabel")}
         }}
-        {LanguageFilterString("?label")}
       }} 
       GROUP BY ?p
       ORDER BY ?label ?p LIMIT 100";
@@ -399,11 +432,11 @@ public class QueryService : MonoBehaviour
   {
     string query = $@"
         {PREFIXES}
-        SELECT str(?label) as ?label WHERE {{
-            OPTIONAL {{
-                <{uri}> rdfs:label ?label .
-                {LanguageFilterString("?label")}
-            }}
+        SELECT (STR(?predicateLabel) AS ?label)
+        {GetSelectedGraphClause()}
+        WHERE {{
+            <{uri}> rdfs:label ?predicateLabel .
+            {LanguageFilterString("?predicateLabel")}
         }}
         LIMIT 1";
     sparqlProvider.QueryWithResultSet(query, (SparqlResultSet resultSet, object state) =>
@@ -474,9 +507,11 @@ public class QueryService : MonoBehaviour
     string order = groupByList.Count > 0 ? "" : GetOrderByString(orderByList);
     return $@"
       {PREFIXES}
-      select distinct * where {{
+      select distinct *
+      {GetSelectedGraphClause()}
+      where {{
         {triplesWithOptional}
-      }} {order} LIMIT {queryLimit}";
+      }} {order} {GetLimitClause()}";
   }
 
   public void CountQuerySimilarPatternsMultipleLayers(Graph graph, string triplesWithOptional, List<string> groupByList, Action<int> callback, string optionalVariable="*")
@@ -484,7 +519,9 @@ public class QueryService : MonoBehaviour
     string countExpression = optionalVariable == "*" ? "*" : "DISTINCT " + optionalVariable;
     string query = $@"
       {PREFIXES}
-      SELECT (COUNT({countExpression}) AS ?count) WHERE {{
+      SELECT (COUNT({countExpression}) AS ?count)
+      {GetSelectedGraphClause()}
+      WHERE {{
         {triplesWithOptional}
       }}";
     Debug.Log($"CountQuerySimilarPatterns | variable: {optionalVariable}\n{query}");

@@ -5,6 +5,9 @@ using UnityEngine.UI;
 using TMPro;
 public class LimitSlider : MonoBehaviour
 {
+  private const int NoLimitValue = 0;
+  private const int DefaultLimit = 25;
+
   public Slider limitSlider;
   public TextMeshProUGUI sliderDisplayValue;
   public TextMeshProUGUI startValue;
@@ -16,13 +19,15 @@ public class LimitSlider : MonoBehaviour
   // Start is called before the first frame update
   void Start()
   {
-    startValue.text = sliderMarks[0].ToString();
-    endValue.text = sliderMarks[sliderMarks.Count - 1].ToString();
+    sliderMarks = new List<int> { NoLimitValue, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 10000 };
+
+    startValue.text = GetDisplayValue(sliderMarks[0]);
+    endValue.text = GetDisplayValue(sliderMarks[sliderMarks.Count - 1]);
 
     limitSlider.wholeNumbers = true;
     limitSlider.minValue = 0;
     limitSlider.maxValue = sliderMarks.Count - 1;
-    limitSlider.value = 6;
+    limitSlider.value = Mathf.Max(0, sliderMarks.IndexOf(DefaultLimit));
 
     float markXStep = (360) / (sliderMarks.Count - 1);
     for (int i = 0; i < sliderMarks.Count; i++)
@@ -40,7 +45,12 @@ public class LimitSlider : MonoBehaviour
   void Update()
   {
     int selectedValue = sliderMarks[(int)limitSlider.value];
-    sliderDisplayValue.text = selectedValue.ToString();
+    sliderDisplayValue.text = GetDisplayValue(selectedValue);
     QueryService.Instance.queryLimit = selectedValue;
+  }
+
+  private string GetDisplayValue(int value)
+  {
+    return value == NoLimitValue ? "All" : value.ToString();
   }
 }

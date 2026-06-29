@@ -10,6 +10,8 @@ public static class SparqlProviderFactory
   public const string Virtuoso = "Virtuoso";
   public const string GraphDB = "GraphDB";
   public const string AllegroGraph = "AllegroGraph";
+  public const string Fuseki = "Fuseki";
+  public const string Stardog = "Stardog";
 
   public static ISparqlProvider Create(Settings settings)
   {
@@ -21,6 +23,10 @@ public static class SparqlProviderFactory
         return CreateAllegroGraphProvider(settings);
       case "graphdb":
         return CreateGraphDbProvider(settings);
+      case "fuseki":
+        return CreateRemoteEndpointProvider(settings, Fuseki);
+      case "stardog":
+        return CreateStardogProvider(settings);
       case "virtuoso":
       case "genericsparql":
       default:
@@ -67,6 +73,16 @@ public static class SparqlProviderFactory
       return true;
     }
 
+    if (string.Equals(providerType, Fuseki, StringComparison.OrdinalIgnoreCase))
+    {
+      return true;
+    }
+
+    if (string.Equals(providerType, Stardog, StringComparison.OrdinalIgnoreCase))
+    {
+      return true;
+    }
+
     Uri endpointUri;
     if (Uri.TryCreate(settings.sparqlEndpoint, UriKind.Absolute, out endpointUri))
     {
@@ -105,12 +121,17 @@ public static class SparqlProviderFactory
 
   private static ISparqlProvider CreateGraphDbProvider(Settings settings)
   {
-    string repositoryId = settings.repositoryId;
-    string serverEndpoint = settings.sparqlEndpoint;
+    string repositoryId = settings.repositoryId?.Trim();
+    string serverEndpoint = settings.sparqlEndpoint?.Trim();
+    string extractedRepositoryId;
 
-    if (string.IsNullOrEmpty(repositoryId))
+    if (TryExtractRepositoryEndpoint(serverEndpoint, out string extractedServerEndpoint, out extractedRepositoryId))
     {
-      TryExtractRepositoryEndpoint(settings.sparqlEndpoint, out serverEndpoint, out repositoryId);
+      serverEndpoint = extractedServerEndpoint;
+      if (string.IsNullOrEmpty(repositoryId))
+      {
+        repositoryId = extractedRepositoryId;
+      }
     }
 
     if (string.IsNullOrEmpty(repositoryId))
@@ -119,11 +140,33 @@ public static class SparqlProviderFactory
       return CreateRemoteEndpointProvider(settings, GraphDB);
     }
 
+    Debug.Log($"GraphDB provider config | server: {serverEndpoint} | repository: {repositoryId}");
+
     SesameHttpProtocolVersion6Connector connector = string.IsNullOrEmpty(settings.username)
       ? new SesameHttpProtocolVersion6Connector(serverEndpoint, repositoryId)
       : new SesameHttpProtocolVersion6Connector(serverEndpoint, repositoryId, settings.username, settings.password);
 
     return new StorageSparqlProvider(connector, GraphDB);
+  }
+
+  private static ISparqlProvider CreateStardogProvider(Settings settings)
+  {
+    string databaseId = settings.repositoryId?.Trim();
+    string serverEndpoint = NormalizeStardogServerEndpoint(settings.sparqlEndpoint?.Trim(), ref databaseId);
+
+    if (string.IsNullOrEmpty(databaseId))
+    {
+      Debug.LogWarning("Stardog provider selected without repositoryId. Falling back to generic SPARQL endpoint.");
+      return CreateRemoteEndpointProvider(settings, Stardog);
+    }
+
+    Debug.Log($"Stardog provider config | server: {serverEndpoint} | database: {databaseId}");
+
+    StardogConnector connector = string.IsNullOrEmpty(settings.username)
+      ? new StardogConnector(serverEndpoint, databaseId)
+      : new StardogConnector(serverEndpoint, databaseId, settings.username, settings.password);
+
+    return new StorageSparqlProvider(connector, Stardog);
   }
 
   private static bool TryExtractRepositoryEndpoint(string endpoint, out string serverEndpoint, out string repositoryId)
@@ -161,5 +204,34 @@ public static class SparqlProviderFactory
     serverEndpoint = builder.Uri.ToString().TrimEnd('/');
 
     return !string.IsNullOrEmpty(repositoryId);
+  }
+
+  private static string NormalizeStardogServerEndpoint(string endpoint, ref string databaseId)
+  {
+    if (string.IsNullOrEmpty(endpoint))
+    {
+      return endpoint;
+    }
+
+    Uri uri;
+    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out uri))
+    {
+      return endpoint;
+    }
+
+    string[] pathSegments = uri.AbsolutePath.Trim('/').Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    if (pathSegments.Length > 0 && string.IsNullOrEmpty(databaseId))
+    {
+      databaseId = Uri.UnescapeDataString(pathSegments[0]);
+    }
+
+    UriBuilder builder = new UriBuilder(uri)
+    {
+      Path = "",
+      Query = "",
+      Fragment = ""
+    };
+
+    return builder.Uri.ToString().TrimEnd('/');
   }
 }
