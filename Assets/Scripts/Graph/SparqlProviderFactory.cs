@@ -13,30 +13,31 @@ public static class SparqlProviderFactory
   public const string Fuseki = "Fuseki";
   public const string Stardog = "Stardog";
 
-  public static ISparqlProvider Create(Settings settings)
+  public static ISparqlProvider Create(Settings settings, bool ignoreSelectedGraph = false)
   {
     string providerType = string.IsNullOrEmpty(settings.providerType) ? GenericSparql : settings.providerType.Trim();
 
     switch (providerType.ToLowerInvariant())
     {
       case "allegrograph":
-        return CreateAllegroGraphProvider(settings);
+        return CreateAllegroGraphProvider(settings, ignoreSelectedGraph);
       case "graphdb":
-        return CreateGraphDbProvider(settings);
+        return CreateGraphDbProvider(settings, ignoreSelectedGraph);
       case "fuseki":
-        return CreateRemoteEndpointProvider(settings, Fuseki);
+        return CreateRemoteEndpointProvider(settings, Fuseki, ignoreSelectedGraph);
       case "stardog":
-        return CreateStardogProvider(settings);
+        return CreateStardogProvider(settings, ignoreSelectedGraph);
       case "virtuoso":
       case "genericsparql":
       default:
-        return CreateRemoteEndpointProvider(settings, providerType);
+        return CreateRemoteEndpointProvider(settings, providerType, ignoreSelectedGraph);
     }
   }
 
-  private static ISparqlProvider CreateRemoteEndpointProvider(Settings settings, string providerType)
+  private static ISparqlProvider CreateRemoteEndpointProvider(Settings settings, string providerType, bool ignoreSelectedGraph = false)
   {
-    SparqlRemoteEndpoint endpoint = string.IsNullOrEmpty(settings.baseURI)
+    bool useSelectedGraph = !ignoreSelectedGraph && !string.IsNullOrEmpty(settings.baseURI);
+    SparqlRemoteEndpoint endpoint = !useSelectedGraph
       ? new SparqlRemoteEndpoint(new Uri(settings.sparqlEndpoint))
       : new SparqlRemoteEndpoint(new Uri(settings.sparqlEndpoint), settings.baseURI);
 
@@ -93,12 +94,12 @@ public static class SparqlProviderFactory
     return false;
   }
 
-  private static ISparqlProvider CreateAllegroGraphProvider(Settings settings)
+  private static ISparqlProvider CreateAllegroGraphProvider(Settings settings, bool ignoreSelectedGraph = false)
   {
     if (string.IsNullOrEmpty(settings.repositoryId))
     {
       Debug.LogWarning("AllegroGraph provider selected without repositoryId. Falling back to generic SPARQL endpoint.");
-      return CreateRemoteEndpointProvider(settings, GenericSparql);
+      return CreateRemoteEndpointProvider(settings, GenericSparql, ignoreSelectedGraph);
     }
 
     string catalogId = string.IsNullOrEmpty(settings.catalogId) ? null : settings.catalogId;
@@ -119,7 +120,7 @@ public static class SparqlProviderFactory
     return new StorageSparqlProvider(connector, AllegroGraph);
   }
 
-  private static ISparqlProvider CreateGraphDbProvider(Settings settings)
+  private static ISparqlProvider CreateGraphDbProvider(Settings settings, bool ignoreSelectedGraph = false)
   {
     string repositoryId = settings.repositoryId?.Trim();
     string serverEndpoint = settings.sparqlEndpoint?.Trim();
@@ -137,7 +138,7 @@ public static class SparqlProviderFactory
     if (string.IsNullOrEmpty(repositoryId))
     {
       Debug.LogWarning("GraphDB provider selected without repositoryId. Falling back to generic SPARQL endpoint.");
-      return CreateRemoteEndpointProvider(settings, GraphDB);
+      return CreateRemoteEndpointProvider(settings, GraphDB, ignoreSelectedGraph);
     }
 
     Debug.Log($"GraphDB provider config | server: {serverEndpoint} | repository: {repositoryId}");
@@ -149,7 +150,7 @@ public static class SparqlProviderFactory
     return new StorageSparqlProvider(connector, GraphDB);
   }
 
-  private static ISparqlProvider CreateStardogProvider(Settings settings)
+  private static ISparqlProvider CreateStardogProvider(Settings settings, bool ignoreSelectedGraph = false)
   {
     string databaseId = settings.repositoryId?.Trim();
     string serverEndpoint = NormalizeStardogServerEndpoint(settings.sparqlEndpoint?.Trim(), ref databaseId);
@@ -157,7 +158,7 @@ public static class SparqlProviderFactory
     if (string.IsNullOrEmpty(databaseId))
     {
       Debug.LogWarning("Stardog provider selected without repositoryId. Falling back to generic SPARQL endpoint.");
-      return CreateRemoteEndpointProvider(settings, Stardog);
+      return CreateRemoteEndpointProvider(settings, Stardog, ignoreSelectedGraph);
     }
 
     Debug.Log($"Stardog provider config | server: {serverEndpoint} | database: {databaseId}");

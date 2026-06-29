@@ -336,7 +336,8 @@ public class QueryService : MonoBehaviour
         GRAPH ?graph {{ ?s ?p ?o }}
       }}";
 
-    sparqlProvider.QueryWithResultSet(query, (results, state) =>
+    ISparqlProvider graphListProvider = SparqlProviderFactory.Create(Settings.Instance, ignoreSelectedGraph: true);
+    graphListProvider.QueryWithResultSet(query, (results, state) =>
     {
       if (state != null)
       {
