@@ -90,6 +90,10 @@ namespace Dweiss
     public bool queryLoggingEnabled = false;
     public float playerHeight = 1.8f;
     public float modelNodeSize = 0.75f;
+    public int screenshotWidth = 7680;
+    public int screenshotHeight = 4320;
+    public bool screenshotDisablePostProcessing = true;
+    public bool screenshotHideControllers = false;
 
     public string[] imagePredicates = { "http://xmlns.com/foaf/0.1/depiction", "http://xmlns.com/foaf/0.1/Image", "http://xmlns.com/foaf/0.1/thumbnail", "http://dbpedia.org/property/photo" };
     public string[] modelPredicates = { "http://graph2vr.org/model", "http://graph2vr.org/mesh" };

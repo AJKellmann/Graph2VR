@@ -32,6 +32,7 @@ public class ControlerInput : MonoBehaviour
   public InputActionProperty viveTrackpadRightTouchReleased;
 
   public InputActionProperty menuButton;
+  public InputActionProperty highResolutionScreenshotButton;
 
   private bool isLeftHanded = false;
   public void UpdateLeftRightHandedInterface()
@@ -72,6 +73,9 @@ public class ControlerInput : MonoBehaviour
     if (menuButton.action != null) menuButton.action.Enable();
     if (menuButton.action != null) menuButton.action.performed += MenuButton;
     if (menuButton.action != null) menuButton.action.canceled += MenuButton;
+
+    if (highResolutionScreenshotButton.action != null) highResolutionScreenshotButton.action.Enable();
+    if (highResolutionScreenshotButton.action != null) highResolutionScreenshotButton.action.performed += CaptureHighResolutionScreenshot;
   }
 
   void OnDisable()
@@ -90,6 +94,7 @@ public class ControlerInput : MonoBehaviour
     if (viveTrackpadRightTouchReleased.action != null) viveTrackpadRightTouchReleased.action.performed -= ViveTrackpadRightTouchReleased;
     if (menuButton.action != null) menuButton.action.performed -= MenuButton;
     if (menuButton.action != null) menuButton.action.canceled -= MenuButton;
+    if (highResolutionScreenshotButton.action != null) highResolutionScreenshotButton.action.performed -= CaptureHighResolutionScreenshot;
   }
 
   void LeftAxis(InputAction.CallbackContext a)
@@ -177,6 +182,10 @@ public class ControlerInput : MonoBehaviour
   void MenuButton(InputAction.CallbackContext a)
   {
     menu = a.ReadValueAsButton();
+  }
+  void CaptureHighResolutionScreenshot(InputAction.CallbackContext a)
+  {
+    HighResolutionScreenshot.Capture();
   }
 
   public static ControlerInput instance;

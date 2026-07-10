@@ -11,7 +11,7 @@ public class ApplicationState
   [Serializable]
   public class State
   {
-    public int saveVersion = 3;
+    public int saveVersion = 4;
     public long optionalCounter;
 
     public List<GraphState> graphs = new List<GraphState>();
@@ -104,6 +104,9 @@ public class ApplicationState
       rotationX = node.transform.rotation.eulerAngles.x;
       rotationY = node.transform.rotation.eulerAngles.y;
       rotationZ = node.transform.rotation.eulerAngles.z;
+      scaleX = node.transform.localScale.x;
+      scaleY = node.transform.localScale.y;
+      scaleZ = node.transform.localScale.z;
       uri = node.uri;
       label = node.label;
 
@@ -126,7 +129,7 @@ public class ApplicationState
         imageHeight = texture.height;
       }
       modelUri = node.GetModelUri();
-      modelDisplaySize = node.GetModelDisplaySize();
+      modelDisplaySize = node.GetCurrentModelDisplaySize();
     }
 
     public float positionX;
@@ -135,6 +138,9 @@ public class ApplicationState
     public float rotationX;
     public float rotationY;
     public float rotationZ;
+    public float scaleX;
+    public float scaleY;
+    public float scaleZ;
     public string uri;
     public string label;
     public string literalDateType = "";
@@ -404,6 +410,10 @@ public class ApplicationState
     Node node = graph.CreateNode(nodeText, new Vector3(state.positionX, state.positionY, state.positionZ), state.literalDateType, state.literalLang);
     loadedNodes[key] = node;
     node.transform.rotation = Quaternion.Euler(state.rotationX, state.rotationY, state.rotationZ);
+    if (state.scaleX > 0f && state.scaleY > 0f && state.scaleZ > 0f)
+    {
+      node.transform.localScale = new Vector3(state.scaleX, state.scaleY, state.scaleZ);
+    }
     node.LockPosition = state.isLocked;
     node.cachedNodeLabel = state.cachedNodeLabel;
     if (state.image != null)

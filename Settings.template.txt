@@ -20,6 +20,10 @@
     "queryLoggingEnabled": false,
     "playerHeight": 1.8,
     "modelNodeSize": 0.75,
+    "screenshotWidth": 7680,
+    "screenshotHeight": 4320,
+    "screenshotDisablePostProcessing": true,
+    "screenshotHideControllers": false,
     "imagePredicates": [
         "http://xmlns.com/foaf/0.1/depiction",
         "http://xmlns.com/foaf/0.1/Image",

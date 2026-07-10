@@ -664,14 +664,7 @@ public class Node : MonoBehaviour
 
   private void NormalizeModelObject(GameObject loadedModel)
   {
-    Renderer renderer = loadedModel.GetComponentInChildren<Renderer>();
-    if (renderer == null) return;
-
-    Bounds bounds = renderer.bounds;
-    foreach (Renderer childRenderer in loadedModel.GetComponentsInChildren<Renderer>())
-    {
-      bounds.Encapsulate(childRenderer.bounds);
-    }
+    if (!TryGetModelBounds(loadedModel, out Bounds bounds)) return;
 
     float maxSize = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
     if (maxSize <= 0f) return;
@@ -697,9 +690,37 @@ public class Node : MonoBehaviour
     return modelDisplaySize;
   }
 
+  public float GetCurrentModelDisplaySize()
+  {
+    if (modelObject == null || !TryGetModelBounds(modelObject, out Bounds bounds))
+    {
+      return modelDisplaySize;
+    }
+
+    float maxSize = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
+    return maxSize > 0f ? maxSize : modelDisplaySize;
+  }
+
   public void SetModelDisplaySize(float size)
   {
     modelDisplaySize = size;
+  }
+
+  private bool TryGetModelBounds(GameObject loadedModel, out Bounds bounds)
+  {
+    Renderer renderer = loadedModel.GetComponentInChildren<Renderer>();
+    if (renderer == null)
+    {
+      bounds = new Bounds();
+      return false;
+    }
+
+    bounds = renderer.bounds;
+    foreach (Renderer childRenderer in loadedModel.GetComponentsInChildren<Renderer>())
+    {
+      bounds.Encapsulate(childRenderer.bounds);
+    }
+    return true;
   }
 
   public void MakeVariable()

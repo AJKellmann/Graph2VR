@@ -428,6 +428,12 @@ public class MainMenu : BaseMenu
       Close();
     });
 
+    cm.AddButton(Icon("\uF030") + "High-res screenshot", defaultMenuColor, () =>
+    {
+      HighResolutionScreenshot.Capture();
+      Close();
+    });
+
     if (isQuestController)
     {
       bool isLeftHanded = PlayerPrefs.GetInt("isLeftHanded", 0) == 1;
