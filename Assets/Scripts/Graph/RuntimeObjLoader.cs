@@ -50,7 +50,7 @@ public static class RuntimeObjLoader
       if (!line.StartsWith("mtllib ", StringComparison.OrdinalIgnoreCase)) continue;
 
       string libraries = line.Substring("mtllib ".Length).Trim();
-      foreach (string library in libraries.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+      foreach (string library in SplitMaterialLibraries(libraries))
       {
         materialUris.Add(ResolveUri(objUri, library));
       }
@@ -338,6 +338,42 @@ public static class RuntimeObjLoader
     int rawIndex = int.Parse(parts[partIndex], CultureInfo.InvariantCulture);
     int resolvedIndex = rawIndex > 0 ? rawIndex - 1 : count + rawIndex;
     return Mathf.Clamp(resolvedIndex, 0, count - 1);
+  }
+
+  private static List<string> SplitMaterialLibraries(string libraries)
+  {
+    List<string> result = new();
+    int start = 0;
+
+    while (start < libraries.Length)
+    {
+      while (start < libraries.Length && char.IsWhiteSpace(libraries[start]))
+      {
+        start++;
+      }
+
+      if (start >= libraries.Length)
+      {
+        break;
+      }
+
+      int end = libraries.IndexOf(".mtl", start, StringComparison.OrdinalIgnoreCase);
+      if (end < 0)
+      {
+        result.Add(libraries.Substring(start).Trim());
+        break;
+      }
+
+      end += ".mtl".Length;
+      string library = libraries.Substring(start, end - start).Trim();
+      if (!string.IsNullOrEmpty(library))
+      {
+        result.Add(library);
+      }
+      start = end;
+    }
+
+    return result;
   }
 
   private static string ResolveUri(string baseUri, string relativeUri)

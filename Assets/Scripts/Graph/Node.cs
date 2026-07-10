@@ -532,17 +532,30 @@ public class Node : MonoBehaviour
     Dictionary<string, Material> materials = new Dictionary<string, Material>();
     foreach (string mtlUri in RuntimeObjLoader.GetMaterialLibraryUris(objText, objUri))
     {
+      string loadedMtlUri = mtlUri;
       UnityWebRequest materialRequest = UnityWebRequest.Get(mtlUri);
       yield return materialRequest.SendWebRequest();
 
       if (materialRequest.result != UnityWebRequest.Result.Success)
       {
-        Debug.LogWarning($"Could not load OBJ material library '{mtlUri}': {materialRequest.error}");
-        materialRequest.Dispose();
-        continue;
+        string compactMtlUri = GetCompactFileNameFallbackUri(mtlUri);
+        if (!string.IsNullOrEmpty(compactMtlUri))
+        {
+          materialRequest.Dispose();
+          materialRequest = UnityWebRequest.Get(compactMtlUri);
+          yield return materialRequest.SendWebRequest();
+          loadedMtlUri = compactMtlUri;
+        }
+
+        if (materialRequest.result != UnityWebRequest.Result.Success)
+        {
+          Debug.LogWarning($"Could not load OBJ material library '{mtlUri}': {materialRequest.error}");
+          materialRequest.Dispose();
+          continue;
+        }
       }
 
-      Dictionary<string, RuntimeObjLoader.ObjMaterialDefinition> definitions = RuntimeObjLoader.ParseMaterialLibrary(materialRequest.downloadHandler.text, mtlUri);
+      Dictionary<string, RuntimeObjLoader.ObjMaterialDefinition> definitions = RuntimeObjLoader.ParseMaterialLibrary(materialRequest.downloadHandler.text, loadedMtlUri);
       materialRequest.Dispose();
 
       foreach (RuntimeObjLoader.ObjMaterialDefinition definition in definitions.Values)
@@ -550,6 +563,7 @@ public class Node : MonoBehaviour
         Material material = new Material(fallbackMaterial);
         material.name = definition.name;
         material.color = definition.color;
+        ConfigureRuntimeObjMaterial(material);
 
         if (!string.IsNullOrEmpty(definition.textureUri))
         {
@@ -563,7 +577,27 @@ public class Node : MonoBehaviour
           }
           else
           {
-            Debug.LogWarning($"Could not load OBJ material texture '{definition.textureUri}': {textureRequest.error}");
+            string fallbackTextureUri = GetTexturesFolderFallbackUri(definition.textureUri);
+            if (!string.IsNullOrEmpty(fallbackTextureUri))
+            {
+              UnityWebRequest fallbackTextureRequest = UnityWebRequestTexture.GetTexture(fallbackTextureUri, false);
+              yield return fallbackTextureRequest.SendWebRequest();
+
+              if (fallbackTextureRequest.result == UnityWebRequest.Result.Success)
+              {
+                Texture2D texture = DownloadHandlerTexture.GetContent(fallbackTextureRequest);
+                material.mainTexture = texture;
+              }
+              else
+              {
+                Debug.LogWarning($"Could not load OBJ material texture '{definition.textureUri}' or '{fallbackTextureUri}': {textureRequest.error}; {fallbackTextureRequest.error}");
+              }
+              fallbackTextureRequest.Dispose();
+            }
+            else
+            {
+              Debug.LogWarning($"Could not load OBJ material texture '{definition.textureUri}': {textureRequest.error}");
+            }
           }
           textureRequest.Dispose();
         }
@@ -573,6 +607,38 @@ public class Node : MonoBehaviour
     }
 
     callback(materials);
+  }
+
+  private string GetCompactFileNameFallbackUri(string uri)
+  {
+    int lastSlash = uri.LastIndexOf('/');
+    if (lastSlash < 0)
+    {
+      return "";
+    }
+
+    string directoryUri = uri.Substring(0, lastSlash + 1);
+    string fileName = uri.Substring(lastSlash + 1);
+    string compactFileName = fileName.Replace(" ", "");
+    return compactFileName == fileName ? "" : directoryUri + compactFileName;
+  }
+
+  private string GetTexturesFolderFallbackUri(string textureUri)
+  {
+    int lastSlash = textureUri.LastIndexOf('/');
+    if (lastSlash < 0 || textureUri.IndexOf("/textures/", System.StringComparison.OrdinalIgnoreCase) >= 0)
+    {
+      return "";
+    }
+
+    string directoryUri = textureUri.Substring(0, lastSlash + 1);
+    string fileName = textureUri.Substring(lastSlash + 1);
+    return directoryUri + "textures/" + fileName;
+  }
+
+  private void ConfigureRuntimeObjMaterial(Material material)
+  {
+    material.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
   }
 
   private void SetModelObject(GameObject loadedModel, string uri)

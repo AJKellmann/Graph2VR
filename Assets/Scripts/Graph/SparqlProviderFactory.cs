@@ -12,6 +12,9 @@ public static class SparqlProviderFactory
   public const string AllegroGraph = "AllegroGraph";
   public const string Fuseki = "Fuseki";
   public const string Stardog = "Stardog";
+  // FourStore is legacy. dotNetRDF still has a connector, but we could not test it
+  // because the available Docker image is too old to pull on current Docker.
+  // public const string FourStore = "FourStore";
 
   public static ISparqlProvider Create(Settings settings, bool ignoreSelectedGraph = false)
   {
@@ -27,6 +30,8 @@ public static class SparqlProviderFactory
         return CreateRemoteEndpointProvider(settings, Fuseki, ignoreSelectedGraph);
       case "stardog":
         return CreateStardogProvider(settings, ignoreSelectedGraph);
+      // case "fourstore":
+      //   return CreateFourStoreProvider(settings);
       case "virtuoso":
       case "genericsparql":
       default:
@@ -169,6 +174,19 @@ public static class SparqlProviderFactory
 
     return new StorageSparqlProvider(connector, Stardog);
   }
+
+  // Untested legacy FourStore provider sketch. Re-enable only with a live 4store
+  // server and current integration tests.
+  // private static ISparqlProvider CreateFourStoreProvider(Settings settings)
+  // {
+  //   FourStoreConnector connector = new FourStoreConnector(settings.sparqlEndpoint, false);
+  //   if (settings.timeoutMilliseconds > 0)
+  //   {
+  //     connector.Timeout = settings.timeoutMilliseconds;
+  //   }
+  //
+  //   return new StorageSparqlProvider(connector, FourStore);
+  // }
 
   private static bool TryExtractRepositoryEndpoint(string endpoint, out string serverEndpoint, out string repositoryId)
   {
