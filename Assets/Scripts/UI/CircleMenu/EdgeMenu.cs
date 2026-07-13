@@ -13,6 +13,11 @@ public class EdgeMenu : BaseMenu
     limitSlider.SetActive(false);
     cm.Close();
     edge = input as Edge;
+    if (edge == null || edge.graph == null)
+    {
+      Debug.LogWarning("EdgeMenu.PopulateEdge called without a valid edge.");
+      return;
+    }
     graph = edge.graph;
 
     if (subMenu != "")
@@ -116,12 +121,6 @@ public class EdgeMenu : BaseMenu
       PopulateEdge(input);
     });
 
-    cm.AddButton(Icon("\uF057") + "Close Edge", new Color(1, 0.5f, 0.5f) / 2, () =>
-    {
-      graph.RemoveEdge(edge);
-      Close();
-    });
-
     if (edge.IsVariable)
     {
       cm.AddButton(Icon("\uf715") + "Undo variable conversion", Color.blue / 2, () =>
@@ -133,11 +132,15 @@ public class EdgeMenu : BaseMenu
       });
       cm.AddButton(Icon("\uF11C") + "Rename variable", Color.red / 2, () =>
       {
+        Edge cachedEdge = edge;
         Utils.GetStringFromVRKeyboard((string name) =>
         {
-          edge.SetVariableName(name);
+          if (cachedEdge != null)
+          {
+            cachedEdge.SetVariableName(name);
+          }
         }
-        , node.GetLabel(), "Enter a variable name...");
+        , edge.variableName, "Enter a variable name...");
       });
     }
     else
@@ -153,6 +156,11 @@ public class EdgeMenu : BaseMenu
       }
     }
 
+    cm.AddButton(Icon("\uF057") + "Close Edge", new Color(1, 0.5f, 0.5f) / 2, () =>
+    {
+      graph.RemoveEdge(edge);
+      Close();
+    });
   }
 
   private void PopulateEdgeDisplaySubMenus(UnityEngine.Object input)

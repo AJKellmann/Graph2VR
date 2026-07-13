@@ -587,7 +587,17 @@ public class Edge : MonoBehaviour
 
   public void SetVariableName(string variableName)
   {
-    this.variableName = variableName;
+    if (string.IsNullOrWhiteSpace(variableName))
+    {
+      return;
+    }
+
+    this.variableName = variableName.StartsWith("?") ? variableName : "?" + variableName;
+    graph?.variableNameManager?.SetVariableName(nonVariableGraphPredicate, this.variableName);
+    if (IsVariable)
+    {
+      graphPredicate = nodeFactory.CreateVariableNode(this.variableName.TrimStart('?'));
+    }
     UpdateEdgeText();
   }
 

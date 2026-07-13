@@ -754,6 +754,7 @@ public class Node : MonoBehaviour
     if (isVariable)
     {
       this.label = GetVariableLabel(label);
+      graph?.variableNameManager?.SetVariableName(graphNode, this.label);
     }
     else
     {

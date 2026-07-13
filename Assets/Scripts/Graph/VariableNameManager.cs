@@ -52,4 +52,15 @@ public class VariableNameManager
     }
   }
 
+  public void SetVariableName(INode node, string variableName)
+  {
+    if (node == null || node.NodeType != NodeType.Uri || string.IsNullOrWhiteSpace(variableName))
+    {
+      return;
+    }
+
+    string uri = node.ToString();
+    string normalizedVariableName = variableName.StartsWith("?") ? variableName : "?" + variableName;
+    uriToVariable[uri] = normalizedVariableName;
+  }
 }
