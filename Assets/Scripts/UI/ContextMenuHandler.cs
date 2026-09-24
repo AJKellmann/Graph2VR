@@ -1,4 +1,4 @@
-﻿using Dweiss;
+using Dweiss;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,9 +6,9 @@ using VDS.RDF;
 
 public class ContextMenuHandler : MonoBehaviour
 {
-  private static int headerSize = 30;
-  private static int titleSize = 25;
-  private static int textSize = 20;
+  private static int headerSize = 24;
+  private static int titleSize = 20;
+  private static int textSize = 18;
 
   public GameObject ContentPanel;
   public GameObject labelPrefab;
@@ -121,7 +121,21 @@ public class ContextMenuHandler : MonoBehaviour
   {
     GameObject label = Instantiate<GameObject>(labelPrefab);
     label.transform.SetParent(ContentPanel.transform, false);
-    label.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = labelText;
+    // The parent vertical layout owns the row dimensions. The shared label prefab
+    // otherwise asks for 600px and sizes itself horizontally beyond the viewport.
+    ContentSizeFitter fitter = label.GetComponent<ContentSizeFitter>();
+    if (fitter != null) fitter.enabled = false;
+    LayoutElement layout = label.GetComponent<LayoutElement>();
+    if (layout != null)
+    {
+      layout.minWidth = 0;
+      layout.preferredWidth = -1;
+      layout.flexibleWidth = 1;
+    }
+    TMPro.TextMeshProUGUI text = label.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+    text.enableAutoSizing = false;
+    text.enableWordWrapping = true;
+    text.text = labelText;
     label.GetComponentInChildren<TMPro.TextMeshProUGUI>().fontSize = fontSize;
     labels.Add(label);
     return label;
