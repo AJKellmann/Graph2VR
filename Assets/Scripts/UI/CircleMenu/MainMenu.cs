@@ -374,7 +374,10 @@ public class MainMenu : BaseMenu
         Settings.Instance.databaseSupportsBifContains = false;
         Settings.Instance.searchOnKeypress = false;
         QueryService.Instance.SwitchEndpoint();
-        OpenGraphSelection();
+        graphsInSelectedDatabase = null;
+        populateMenuState = PopulateMenuState.unloaded;
+        subMenu = "Settings";
+        RefreshMainMenuNextFrame();
       }, PlayerPrefs.GetString("CustomServer", ""), "Enter a custom server url...");
       Close();
     });
@@ -397,7 +400,10 @@ public class MainMenu : BaseMenu
         Settings.Instance.databaseSupportsBifContains = dataBaseSettings.databaseSupportsBifContains;
         Settings.Instance.searchOnKeypress = dataBaseSettings.searchOnKeypress;
         QueryService.Instance.SwitchEndpoint();
-        OpenGraphSelection();
+        graphsInSelectedDatabase = null;
+        populateMenuState = PopulateMenuState.unloaded;
+        subMenu = "Settings";
+        RefreshMainMenuNextFrame();
       });
     }
 
