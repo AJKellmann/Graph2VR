@@ -218,7 +218,7 @@ public class ApplicationState
     state.parentGraphGUID = (graph.parentGraph == null) ? "" : graph.parentGraph.GUID;
     foreach (Graph subGraph in graph.subGraphs)
     {
-      state.subGraphGUIDs.Add(subGraph.GUID);
+      if (subGraph != null) state.subGraphGUIDs.Add(subGraph.GUID);
     }
 
     // Triples
@@ -298,7 +298,8 @@ public class ApplicationState
 
       foreach (string guid in graph.graphState.subGraphGUIDs)
       {
-        graph.subGraphs.Add(graphs.Find((Graph graphCheck) => graphCheck.GUID == guid));
+        Graph child = graphs.Find((Graph graphCheck) => graphCheck.GUID == guid);
+        if (child != null) graph.subGraphs.Add(child);
       }
 
       SemanticPlanes plane = graph.GetComponent<SemanticPlanes>();
@@ -417,7 +418,7 @@ public class ApplicationState
       return loadedNode;
     }
 
-    Node node = graph.CreateNode(nodeText, new Vector3(state.positionX, state.positionY, state.positionZ), state.literalDateType, state.literalLang);
+    Node node = graph.CreateNode(nodeText, new Vector3(state.positionX, state.positionY, state.positionZ), state.literalDateType, state.literalLang, forceLiteral: string.IsNullOrEmpty(state.uri));
     loadedNodes[key] = node;
     node.transform.rotation = Quaternion.Euler(state.rotationX, state.rotationY, state.rotationZ);
     if (state.scaleX > 0f && state.scaleY > 0f && state.scaleZ > 0f)

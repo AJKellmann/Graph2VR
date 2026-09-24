@@ -925,7 +925,7 @@ public class Graph : MonoBehaviour
     return node;
   }
 
-  public Node CreateNode(string value, Vector3 position, string literalDateType = "", string literalLang = "")
+  public Node CreateNode(string value, Vector3 position, string literalDateType = "", string literalLang = "", bool forceLiteral = false)
   {
     string name = "Node: " + value;
     Node existingNode = GetExistingNode(name);
@@ -941,26 +941,22 @@ public class Graph : MonoBehaviour
     clone.transform.localRotation = Quaternion.identity;
     clone.transform.localScale = Vector3.one * 0.05f;
     Node node = CreateNodeFromClone(value, clone);
-    NodeFactory nodeFactory = new();
-
-
-    if (Uri.IsWellFormedUriString(value, UriKind.Absolute))
-    {
-      node.graphNode = nodeFactory.CreateUriNode(new Uri(value));
-    }
-    else
-    {
-      if (Uri.IsWellFormedUriString(literalDateType, UriKind.Absolute))
-      {
-        node.graphNode = nodeFactory.CreateLiteralNode(value, new Uri(literalDateType));
-      }
-      else if (literalLang != "")
-      {
-        node.graphNode = nodeFactory.CreateLiteralNode(value, literalLang);
-      }
-    }
+    node.graphNode = CreateRestoredRdfNode(value, literalDateType, literalLang, forceLiteral);
 
     return node;
+  }
+
+  // Saved URI/literal identity takes precedence over URI-looking literal text.
+  internal static INode CreateRestoredRdfNode(string value, string datatype, string language, bool forceLiteral)
+  {
+    NodeFactory factory = new();
+    if (!forceLiteral && string.IsNullOrEmpty(datatype) && string.IsNullOrEmpty(language) &&
+        Uri.IsWellFormedUriString(value, UriKind.Absolute))
+      return factory.CreateUriNode(new Uri(value));
+    if (Uri.IsWellFormedUriString(datatype, UriKind.Absolute))
+      return factory.CreateLiteralNode(value, new Uri(datatype));
+    if (!string.IsNullOrEmpty(language)) return factory.CreateLiteralNode(value, language);
+    return factory.CreateLiteralNode(value);
   }
 
   private Node CreateNodeFromClone(string value, GameObject clone)

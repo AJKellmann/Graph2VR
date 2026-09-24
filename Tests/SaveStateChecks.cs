@@ -41,7 +41,7 @@ class SaveStateChecks
   {
     AppDomain.CurrentDomain.AssemblyResolve += (sender, request) => {
       string name = new AssemblyName(request.Name).Name + ".dll";
-      foreach (string directory in new[] { Path.GetDirectoryName(args[0]), args[1] })
+      foreach (string directory in args)
       {
         string file = Path.Combine(directory, name);
         if (File.Exists(file)) return Assembly.LoadFrom(file);
@@ -74,6 +74,26 @@ class SaveStateChecks
         Check((int)type.GetField("mediaDisplayOverride").GetValue(old) == 0, "Old saves keep creation default for visibility");
       }
     }
-    Console.WriteLine("Passed " + checks + " actual NodeState serialization checks.");
+    MethodInfo restore = type.Assembly.GetType("Graph").GetMethod("CreateRestoredRdfNode", BindingFlags.NonPublic | BindingFlags.Static);
+    foreach (var item in new[] {
+      new[] { "Label", "", "", "False", "Literal" },
+      new[] { "Label", null, null, "True", "Literal" },
+      new[] { "Label", "", "de", "True", "Literal" },
+      new[] { "42", "http://www.w3.org/2001/XMLSchema#integer", "", "True", "Literal" },
+      new[] { "https://example.org/label", "", "", "True", "Literal" },
+      new[] { "https://example.org/node", "", "", "False", "Uri" }
+    })
+    {
+      object rdf = restore.Invoke(null, new object[] { item[0], item[1], item[2], bool.Parse(item[3]) });
+      Check(rdf != null && rdf.GetType().GetProperty("NodeType").GetValue(rdf, null).ToString() == item[4], "Restored RDF identity");
+      if (item[4] == "Literal")
+      {
+        Type literal = rdf.GetType().GetInterface("VDS.RDF.ILiteralNode");
+        Check((string)literal.GetProperty("Value").GetValue(rdf, null) == item[0], "Literal value retained");
+        if (!string.IsNullOrEmpty(item[2])) Check((string)literal.GetProperty("Language").GetValue(rdf, null) == item[2], "Language retained");
+        if (!string.IsNullOrEmpty(item[1])) Check(literal.GetProperty("DataType").GetValue(rdf, null).ToString() == item[1], "Datatype retained");
+      }
+    }
+    Console.WriteLine("Passed " + checks + " save-state and RDF restoration checks.");
   }
 }

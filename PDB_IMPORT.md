@@ -133,5 +133,5 @@ The defaults for newly created nodes are persisted separately in local PlayerPre
 `ApplicationState.NodeState` type, including omitted optional fields for legacy saves.
 Compile it as a standalone console executable with Unity's C# compiler and mscorlib,
 then run with Unity's bundled Mono, passing the compiled project DLL and the
-`Editor/Data/Managed/UnityEngine` directory as its two arguments. It uses only in-memory
+`Editor/Data/Managed/UnityEngine` directory, followed by `Assets/Plugins/dotNetRDF`, as arguments. It also checks plain, language-tagged, typed and URI-looking literal restoration. It uses only in-memory
 streams and does not read or overwrite user saves. It does not exercise Unity rendering.
