@@ -1,4 +1,4 @@
-﻿/*******************************************************
+/*******************************************************
  * Copyright (C) 2017 Doron Weiss  - All Rights Reserved
  * You may use, distribute and modify this code under the
  * terms of unity license.
@@ -89,6 +89,7 @@ namespace Dweiss
     public bool searchOnKeypress = false;
     public bool queryLoggingEnabled = false;
     public float playerHeight = 1.8f;
+    public bool autoShowNodeMedia = true;
     public float modelNodeSize = 0.75f;
     public int screenshotWidth = 7680;
     public int screenshotHeight = 4320;
@@ -124,6 +125,16 @@ namespace Dweiss
     {
       base.Awake ();
       SetupSingelton();
+      if (PlayerPrefs.HasKey("AutoShowNodeMedia"))
+        autoShowNodeMedia = PlayerPrefs.GetInt("AutoShowNodeMedia") != 0;
+    }
+
+    public void SetAutoShowNodeMedia(bool enabled)
+    {
+      autoShowNodeMedia = enabled;
+      PlayerPrefs.SetInt("AutoShowNodeMedia", enabled ? 1 : 0);
+      PlayerPrefs.Save();
+      foreach (Node node in FindObjectsOfType<Node>()) node.RefreshMediaDisplay();
     }
 
     new string name = "";

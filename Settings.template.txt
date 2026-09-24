@@ -19,6 +19,7 @@
     "searchOnKeypress": false,
     "queryLoggingEnabled": false,
     "playerHeight": 1.8,
+    "autoShowNodeMedia": true,
     "modelNodeSize": 0.75,
     "screenshotWidth": 7680,
     "screenshotHeight": 4320,

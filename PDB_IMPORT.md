@@ -70,3 +70,18 @@ OBJ/STL loading. Do not open this worktree in Unity 6 as part of the PDB feature
 
 References: https://www.wwpdb.org/documentation/file-format-content/format33/sect9.html
 and https://www.wwpdb.org/documentation/file-format-content/format33/sect10.html
+
+## Media visibility and labels
+
+Settings > Auto-show images/models defaults to on. This affects existing and new nodes
+that have not been explicitly overridden. The menu preference persists locally via PlayerPrefs
+and takes precedence over autoShowNodeMedia in Settings.txt. Each node with known media has
+Show as abstract node / Show image/model; that local choice overrides the global default
+and is retained in saved graphs. Existing saves follow the global default.
+
+Media discovery and RDF edges remain unchanged, including media on both ends of the edge.
+When automatic display is off, URLs are retained without starting new image/model downloads.
+Existing in-flight downloads may finish, but hidden nodes will not display the result.
+Loaded media are deactivated and retained in memory for switching back. Models take display
+precedence over images if both exist. Visible 3D models intentionally hide their labels (also for stages). Image and abstract nodes keep labels; missing or
+empty RDF labels fall back to a readable URI component (including CUI query identifiers).

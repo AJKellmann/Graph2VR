@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -99,21 +99,21 @@ public class Utils
 
   static public string GetShortLabelFromUri(string uri)
   {
+    if (string.IsNullOrWhiteSpace(uri)) return "";
     string queryLabel = GetQueryParameterLabel(uri);
-    if (!string.IsNullOrEmpty(queryLabel))
-    {
-      return queryLabel;
-    }
+    if (!string.IsNullOrWhiteSpace(queryLabel)) return queryLabel;
 
-    var list = uri.Split('/', '#');
-    if (list.Length > 0)
+    string identifier = uri;
+    if (Uri.TryCreate(uri, UriKind.Absolute, out Uri parsed))
     {
-      return DecodeUriLabel(list[list.Length - 1]);
+      identifier = !string.IsNullOrEmpty(parsed.Fragment)
+        ? parsed.Fragment.TrimStart('#') : parsed.AbsolutePath;
+      if (string.IsNullOrWhiteSpace(identifier.Trim('/')))
+        return string.IsNullOrWhiteSpace(parsed.Host) ? uri : parsed.Host;
     }
-    else
-    {
-      return uri;
-    }
+    string[] parts = identifier.Split(new[] { '/', '#', ':' }, StringSplitOptions.RemoveEmptyEntries);
+    string result = parts.Length == 0 ? uri : Uri.UnescapeDataString(parts[parts.Length - 1]);
+    return string.IsNullOrWhiteSpace(result) ? uri : result;
   }
 
   static public string GetQueryParameterLabel(string uri)
@@ -147,7 +147,7 @@ public class Utils
       }
     }
 
-    string[] preferredKeys = { "name", "label", "target variable", "variable", "id" };
+    string[] preferredKeys = { "name", "label", "target variable", "variable", "cui", "id" };
     foreach (string key in preferredKeys)
     {
       if (parameters.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))

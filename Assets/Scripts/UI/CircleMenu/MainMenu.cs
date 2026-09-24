@@ -240,7 +240,7 @@ public class MainMenu : BaseMenu
       cm.Close();
       PopulateMainMenu();
     });
-    cm.AddButton("ES - Español", Color.green / 2, () =>
+    cm.AddButton("ES - Espa\u00f1ol", Color.green / 2, () =>
     {
       PlayerPrefs.SetString("LanguageCode", "es");
       Main.instance.languageCode = "es";
@@ -248,7 +248,7 @@ public class MainMenu : BaseMenu
       cm.Close();
       PopulateMainMenu();
     });
-    cm.AddButton("FR - Français", Color.green / 2, () =>
+    cm.AddButton("FR - Fran\u00e7ais", Color.green / 2, () =>
     {
       PlayerPrefs.SetString("LanguageCode", "fr");
       Main.instance.languageCode = "fr";
@@ -409,6 +409,12 @@ public class MainMenu : BaseMenu
         Close();
       });
     }
+
+    cm.AddButton("Auto-show images/models: " + (Settings.Instance.autoShowNodeMedia ? "on" : "off"), Color.yellow / 2, () =>
+    {
+      Settings.Instance.SetAutoShowNodeMedia(!Settings.Instance.autoShowNodeMedia);
+      RefreshMainMenuNextFrame();
+    });
 
     cm.AddButton(Settings.Instance.searchOnKeypress ? Icon("\uF11C") + "Use: Search on submit" : Icon("\uF11C") + "Use: Search on key-press", Color.yellow / 2, () =>
     {

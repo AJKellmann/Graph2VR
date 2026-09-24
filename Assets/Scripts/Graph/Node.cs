@@ -1,4 +1,4 @@
-﻿using Dweiss;
+using Dweiss;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -34,6 +34,70 @@ public class Node : MonoBehaviour
   private string cachedModelUri = "";
   private float modelDisplaySize = -1f;
   private GameObject modelObject = null;
+
+  // 0 follows Settings, 1 explicitly shows media, 2 explicitly shows the abstract node.
+  public int MediaDisplayOverride { get; private set; }
+  private List<string> imageCandidates = new List<string>();
+  private List<string> modelCandidates = new List<string>();
+  private bool imageLoading, modelLoading;
+  private Vector3 abstractLabelPosition;
+  public bool MediaEnabled => MediaDisplayOverride == 1 ||
+    (MediaDisplayOverride == 0 && Settings.Instance.autoShowNodeMedia);
+  public bool HasMedia => cachedImage != null || modelObject != null ||
+    imageCandidates.Count > 0 || modelCandidates.Count > 0;
+  public List<string> GetImageCandidates() => new List<string>(imageCandidates);
+  public List<string> GetModelCandidates() => new List<string>(modelCandidates);
+
+  public void SetMediaDisplayOverride(int value)
+  {
+    MediaDisplayOverride = value >= 0 && value <= 2 ? value : 0;
+    RefreshMediaDisplay();
+  }
+
+  public void ToggleMediaDisplay()
+  {
+    SetMediaDisplayOverride(MediaEnabled ? 2 : 1);
+  }
+
+  public void RefreshMediaDisplay()
+  {
+    bool showModel = MediaEnabled && modelObject != null;
+    bool showImage = MediaEnabled && !showModel && cachedImage != null;
+    if (modelObject != null) modelObject.SetActive(showModel);
+    Transform border = transform.Find("Border");
+    if (border != null) border.gameObject.SetActive(showImage);
+    GetComponent<Renderer>().enabled = !showModel && !showImage;
+    if (!MediaEnabled) return;
+    if (modelObject == null && modelCandidates.Count > 0 && !modelLoading)
+      StartCoroutine(LoadMedia(FindAndSetWorkingModel(new List<string>(modelCandidates)), true));
+    if (cachedImage == null && imageCandidates.Count > 0 && !imageLoading)
+      StartCoroutine(LoadMedia(FindAndSetWorkingTexture(new List<string>(imageCandidates)), false));
+  }
+
+  private IEnumerator LoadMedia(IEnumerator loader, bool model)
+  {
+    if (model) modelLoading = true; else imageLoading = true;
+    try { yield return loader; }
+    finally
+    {
+      (loader as IDisposable)?.Dispose();
+      if (model) modelLoading = false; else imageLoading = false;
+    }
+  }
+
+  private void PositionMediaLabel()
+  {
+    // Models (including stages) intentionally have no overlaid label.
+    textMesh.enabled = !(MediaEnabled && modelObject != null);
+    if (MediaEnabled && modelObject == null && cachedImage != null)
+    {
+      Renderer imageRenderer = transform.Find("Border/Image").GetComponent<Renderer>();
+      Bounds imageBounds = imageRenderer.bounds;
+      textMesh.transform.position = new Vector3(imageBounds.center.x, imageBounds.max.y + 0.04f, imageBounds.center.z);
+    }
+    else textMesh.transform.localPosition = abstractLabelPosition;
+  }
+
 
   public bool LockPosition
   {
@@ -98,6 +162,7 @@ public class Node : MonoBehaviour
   public void Awake()
   {
     textMesh = GetComponentInChildren<TMPro.TextMeshPro>(true);
+    abstractLabelPosition = textMesh.transform.localPosition;
   }
 
   public void Start()
@@ -349,7 +414,7 @@ public class Node : MonoBehaviour
   void Update()
   {
     Quaternion cameraFacingRotation = Quaternion.LookRotation(Camera.main.transform.position - transform.position, Vector3.up);
-    if (modelObject == null && string.IsNullOrEmpty(cachedModelUri))
+    if (!MediaEnabled || modelObject == null)
     {
       transform.rotation = cameraFacingRotation;
     }
@@ -366,6 +431,8 @@ public class Node : MonoBehaviour
     {
       textMesh.transform.localScale = Vector3.one * 0.3f;
     }
+
+    PositionMediaLabel();
 
     // Clamp position
     if (transform.position.y < 0)
@@ -408,16 +475,20 @@ public class Node : MonoBehaviour
 
   public void SetImageFromList(List<string> images)
   {
-    StartCoroutine(FindAndSetWorkingTexture(images));
+    if (images == null || images.Count == 0) return;
+    imageCandidates = images.FindAll(value => !string.IsNullOrWhiteSpace(value));
+    RefreshMediaDisplay();
   }
 
   private IEnumerator FindAndSetWorkingTexture(List<string> images)
   {
     foreach (string uri in images)
     {
+      if (!MediaEnabled) yield break;
       UnityWebRequest imageRequest = UnityWebRequestTexture.GetTexture(uri, false);
       yield return imageRequest.SendWebRequest();
-      yield return new WaitForSeconds(UnityEngine.Random.Range(0.0f, 5.0f));
+      if (!MediaEnabled) { imageRequest.Dispose(); yield break; }
+      if (!MediaEnabled) { imageRequest.Dispose(); yield break; }
       if (imageRequest.result != UnityWebRequest.Result.Success)
       {
         imageRequest.Dispose();
@@ -454,6 +525,7 @@ public class Node : MonoBehaviour
     float aspect = ((float)height / width);
     float sizeY = sizeX / aspect;
     borderObject.transform.localScale = new Vector3(sizeY, sizeX, scale);
+    RefreshMediaDisplay();
   }
 
   public Texture2D GetTexture()
@@ -465,7 +537,8 @@ public class Node : MonoBehaviour
   {
     if (models == null || models.Count == 0) return;
     cachedModelUri = models.Find(model => !string.IsNullOrWhiteSpace(model)) ?? "";
-    StartCoroutine(FindAndSetWorkingModel(models));
+    modelCandidates = models.FindAll(value => !string.IsNullOrWhiteSpace(value));
+    RefreshMediaDisplay();
   }
 
   private IEnumerator FindAndSetWorkingModel(List<string> models)
@@ -490,8 +563,10 @@ public class Node : MonoBehaviour
         continue;
       }
 
+      if (!MediaEnabled) yield break;
       UnityWebRequest modelRequest = UnityWebRequest.Get(uri);
       yield return modelRequest.SendWebRequest();
+      if (!MediaEnabled) { modelRequest.Dispose(); yield break; }
 
       if (modelRequest.result != UnityWebRequest.Result.Success)
       {
@@ -665,7 +740,7 @@ public class Node : MonoBehaviour
     {
       border.gameObject.SetActive(false);
     }
-    GetComponent<Renderer>().enabled = false;
+    RefreshMediaDisplay();
   }
 
   private void NormalizeModelObject(GameObject loadedModel)
@@ -821,7 +896,14 @@ public class Node : MonoBehaviour
 
   private void UpdateDisplay()
   {
-    textMesh.text = (label == "") ? uri : label;
+    string displayLabel = label;
+    if (string.IsNullOrWhiteSpace(displayLabel))
+    {
+      string identifier = !string.IsNullOrWhiteSpace(uri) ? uri : (graphNode?.ToString() ?? "");
+      displayLabel = Utils.GetShortLabelFromUri(identifier);
+      if (string.IsNullOrWhiteSpace(displayLabel)) displayLabel = identifier;
+    }
+    textMesh.text = displayLabel;
   }
 
   public void ToggleInfoPanel()

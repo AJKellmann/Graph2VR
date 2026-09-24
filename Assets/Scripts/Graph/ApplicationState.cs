@@ -128,6 +128,9 @@ public class ApplicationState
         imageWidth = texture.width;
         imageHeight = texture.height;
       }
+      mediaDisplayOverride = node.MediaDisplayOverride;
+      imageCandidates = node.GetImageCandidates();
+      modelCandidates = node.GetModelCandidates();
       modelUri = node.GetModelUri();
       modelDisplaySize = node.GetCurrentModelDisplaySize();
     }
@@ -151,6 +154,9 @@ public class ApplicationState
     public byte[] image;
     public int imageWidth;
     public int imageHeight;
+    [System.Runtime.Serialization.OptionalField] public int mediaDisplayOverride;
+    [System.Runtime.Serialization.OptionalField] public List<string> imageCandidates;
+    [System.Runtime.Serialization.OptionalField] public List<string> modelCandidates;
     public string modelUri = "";
     public float modelDisplaySize = -1f;
     public string nodeOfExternalGraphGUID = "";
@@ -416,19 +422,22 @@ public class ApplicationState
     }
     node.LockPosition = state.isLocked;
     node.cachedNodeLabel = state.cachedNodeLabel;
+    node.SetMediaDisplayOverride(state.mediaDisplayOverride);
     if (state.image != null)
     {
       Texture2D image = new Texture2D(state.imageWidth, state.imageHeight);
       image.LoadImage(state.image);
       node.SetTexture(image, state.imageWidth, state.imageHeight);
     }
-    if (!string.IsNullOrEmpty(state.modelUri))
+    node.SetImageFromList(state.imageCandidates);
+    if (!string.IsNullOrEmpty(state.modelUri) || (state.modelCandidates != null && state.modelCandidates.Count > 0))
     {
       if (state.modelDisplaySize > 0f)
       {
         node.SetModelDisplaySize(state.modelDisplaySize);
       }
-      node.SetModelFromList(new List<string> { state.modelUri });
+      node.SetModelFromList(state.modelCandidates != null && state.modelCandidates.Count > 0
+        ? state.modelCandidates : new List<string> { state.modelUri });
     }
     if (state.isVariable)
     {

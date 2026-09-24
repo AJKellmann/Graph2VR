@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using VDS.RDF;
@@ -177,6 +177,15 @@ public class NodeMenu : BaseMenu
       cm.Close();
       PopulateNode(input);
     });
+
+    if (node.HasMedia)
+    {
+      cm.AddButton(node.MediaEnabled ? "Show as abstract node" : "Show image/model", defaultMenuColor, () =>
+      {
+        node.ToggleMediaDisplay();
+        PopulateNode(node);
+      });
+    }
 
     if (node.lockPosition)
     {
