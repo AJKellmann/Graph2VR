@@ -129,3 +129,7 @@ The binaries of Graph2VR provided on this website were developed using an Educat
 
 **As-Is**: This software is provided "as is" without warranty of any kind. 
 Please check the issues pages for known bugs and missing features.
+
+### PDB protein models
+
+PDB ball-and-stick models are supported through the existing model URL route. See [PDB import](PDB_IMPORT.md) for scope, examples, tests and Quest validation.

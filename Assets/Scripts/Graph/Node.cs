@@ -483,7 +483,8 @@ public class Node : MonoBehaviour
 
       bool canLoadObj = RuntimeObjLoader.CanLoad(uri);
       bool canLoadStl = RuntimeStlLoader.CanLoad(uri);
-      if (!canLoadObj && !canLoadStl)
+      bool canLoadPdb = RuntimePdbLoader.CanLoad(uri);
+      if (!canLoadObj && !canLoadStl && !canLoadPdb)
       {
         Debug.LogWarning($"Unsupported runtime model format: {uri}");
         continue;
@@ -509,6 +510,11 @@ public class Node : MonoBehaviour
         Dictionary<string, Material> materials = null;
         yield return LoadObjMaterials(objText, uri, material, loadedMaterials => materials = loadedMaterials);
         modelLoaded = RuntimeObjLoader.TryCreateGameObject(objText, "NodeModel", material, materials, out loadedModel);
+      }
+      else if (canLoadPdb)
+      {
+        modelLoaded = RuntimePdbLoader.TryCreateGameObject(modelRequest.downloadHandler.text, "NodeModel", material, out loadedModel);
+        Destroy(material); // PDB renderer owns its per-element copies.
       }
       else if (canLoadStl)
       {
