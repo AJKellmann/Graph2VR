@@ -133,9 +133,10 @@ namespace Dweiss
         autoShowNodeMedia = PlayerPrefs.GetInt("AutoShowNodeMedia") != 0;
     }
 
-    public void CyclePdbRepresentation()
+    public void SetPdbRepresentation(PdbRepresentation representation)
     {
-      pdbRepresentation = (PdbRepresentation)(((int)pdbRepresentation + 1) % System.Enum.GetValues(typeof(PdbRepresentation)).Length);
+      if (!System.Enum.IsDefined(typeof(PdbRepresentation), representation)) return;
+      pdbRepresentation = representation;
       PlayerPrefs.SetInt("PdbRepresentation", (int)pdbRepresentation);
       PlayerPrefs.Save();
     }

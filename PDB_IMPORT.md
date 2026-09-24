@@ -89,8 +89,9 @@ empty RDF labels fall back to a readable URI component (including CUI query iden
 
 ## PDB representations
 
-The Settings button `New PDB nodes: ... (change)` cycles the default for nodes created
-afterwards. Bonds (0) is the initial default; Atoms (1), Residues (2), Chains (3), Cartoon (4) follow.
+Settings > `PDB settings (new nodes)` opens a submenu with directly selectable defaults
+for nodes created afterwards. The active choice is blue and marked `(default)`.
+Selection keeps this submenu open; Back returns to Settings. Bonds (0) is the initial default; Atoms (1), Residues (2), Chains (3), Cartoon (4) follow.
 The saved preference overrides `pdbRepresentation` in Settings.txt. Existing nodes stay
 unchanged. On a PDB node, `PDB: ... (change)` opens the five choices independently of
 the existing abstract/media switch. The selected representation is saved with the node;

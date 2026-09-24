@@ -66,7 +66,7 @@ public class MainMenu : BaseMenu
     // We are in a sub menu
     cm.AddButton(Icon("\uF064") + "Back", Color.blue / 2, () =>
     {
-      subMenu = subMenu == "SelectGraph" ? "Settings" : "";
+      subMenu = (subMenu == "SelectGraph" || subMenu == "PdbSettings") ? "Settings" : "";
       populateMenuState = PopulateMenuState.unloaded;
       cm.Close();
       PopulateMainMenu();
@@ -79,6 +79,10 @@ public class MainMenu : BaseMenu
     if (subMenu == "Settings")
     {
       PopulateSettingsMenu();
+    }
+    if (subMenu == "PdbSettings")
+    {
+      PopulatePdbSettingsMenu();
     }
     if (subMenu == "Load")
     {
@@ -339,6 +343,20 @@ public class MainMenu : BaseMenu
     RefreshMainMenuNextFrame();
   }
 
+  private void PopulatePdbSettingsMenu()
+  {
+    foreach (PdbRepresentation representation in new[] { PdbRepresentation.Atoms, PdbRepresentation.Bonds,
+      PdbRepresentation.Residues, PdbRepresentation.Chains, PdbRepresentation.Cartoon })
+    {
+      bool selected = Settings.Instance.pdbRepresentation == representation;
+      cm.AddButton(representation + (selected ? " (default)" : ""), selected ? Color.blue : defaultMenuColor, () =>
+      {
+        Settings.Instance.SetPdbRepresentation(representation);
+        RefreshMainMenuNextFrame();
+      });
+    }
+  }
+
   private void PopulateSettingsMenu()
   {
 
@@ -407,9 +425,9 @@ public class MainMenu : BaseMenu
       });
     }
 
-    cm.AddButton("New PDB nodes: " + Settings.Instance.pdbRepresentation + " (change)", Color.yellow / 2, () =>
+    cm.AddButton("PDB settings (new nodes)", Color.yellow / 2, () =>
     {
-      Settings.Instance.CyclePdbRepresentation();
+      subMenu = "PdbSettings";
       RefreshMainMenuNextFrame();
     });
 
