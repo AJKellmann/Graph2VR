@@ -275,7 +275,7 @@ public class NodeMenu : BaseMenu
     }
     if (subMenu == "PdbRepresentation")
     {
-      foreach (PdbRepresentation representation in new[] { PdbRepresentation.Atoms, PdbRepresentation.Bonds, PdbRepresentation.Residues, PdbRepresentation.Chains })
+      foreach (PdbRepresentation representation in new[] { PdbRepresentation.Atoms, PdbRepresentation.Bonds, PdbRepresentation.Residues, PdbRepresentation.Chains, PdbRepresentation.Cartoon })
       {
         cm.AddButton(representation.ToString(), node.PdbDisplay == representation ? Color.blue : defaultMenuColor, () =>
         {

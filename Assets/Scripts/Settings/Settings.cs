@@ -135,7 +135,7 @@ namespace Dweiss
 
     public void CyclePdbRepresentation()
     {
-      pdbRepresentation = (PdbRepresentation)(((int)pdbRepresentation + 1) % 4);
+      pdbRepresentation = (PdbRepresentation)(((int)pdbRepresentation + 1) % System.Enum.GetValues(typeof(PdbRepresentation)).Length);
       PlayerPrefs.SetInt("PdbRepresentation", (int)pdbRepresentation);
       PlayerPrefs.Save();
     }

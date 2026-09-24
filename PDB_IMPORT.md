@@ -90,9 +90,9 @@ empty RDF labels fall back to a readable URI component (including CUI query iden
 ## PDB representations
 
 The Settings button `New PDB nodes: ... (change)` cycles the default for nodes created
-afterwards. Bonds (0) is the initial default; Atoms (1), Residues (2), Chains (3) follow.
+afterwards. Bonds (0) is the initial default; Atoms (1), Residues (2), Chains (3), Cartoon (4) follow.
 The saved preference overrides `pdbRepresentation` in Settings.txt. Existing nodes stay
-unchanged. On a PDB node, `PDB: ... (change)` opens the four choices independently of
+unchanged. On a PDB node, `PDB: ... (change)` opens the five choices independently of
 the existing abstract/media switch. The selected representation is saved with the node;
 older saves use Bonds. OBJ/STL models have no PDB representation menu.
 
@@ -102,13 +102,18 @@ older saves use Bonds. OBJ/STL models have no PDB representation menu.
   colored by chain. Ligands, metals and residues lacking C-alpha are omitted.
 - Chains: smoothed Catmull-Rom backbone tubes colored by chain. This is a schematic
   trace, not secondary-structure cartoons, molecular surfaces or atomic geometry.
+- Cartoon: chain-colored helix ribbons and beta-strand arrows over a thin backbone tube.
+  Uses PDB HELIX/SHEET annotations, including residue numbers and insertion codes.
+  Missing annotations remain tubes; malformed annotations are skipped with a warning.
+  No secondary structure is inferred from coordinates. Annotated segments shorter than
+  two connected C-alpha positions also remain tubes.
 
 Backbone segments follow identified peptide bonds and respect chain IDs, TER and missing
 C-alpha atoms. C-alpha-only files do not have inferred peptide bonds, so their residues
-remain disconnected. Structures without standard C-alpha residues cannot use Residues
-or Chains; a warning is logged and an existing representation is retained.
+remain disconnected. Structures without standard C-alpha residues cannot use Residues,
+Chains or Cartoon; a warning is logged and an existing representation is retained.
 
 Changing representation reuses parsed coordinates without another download, replaces
 the generated meshes/materials, and retains coordinate scale and center. The PDB file
 remains a single Graph2VR layout node. Mesh generation is synchronous and may briefly
-pause on large structures. Verify all four modes visually and on Quest before release.
+pause on large structures. Verify all five modes visually and on Quest before release.

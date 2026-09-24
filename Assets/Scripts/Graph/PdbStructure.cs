@@ -8,9 +8,9 @@ public sealed class PdbStructure
 {
   public sealed class Atom
   {
-    public int Serial, Segment;
+    public int Serial, Segment, ResidueSequence;
     public string Name, Element, Residue, ResidueId, Chain;
-    public char Alternate;
+    public char Alternate, InsertionCode;
     public float X, Y, Z, Occupancy;
     public string ResidueKey => Segment + ":" + Chain + ":" + ResidueId;
   }
@@ -48,6 +48,67 @@ public sealed class PdbStructure
     { "PRO", "N-CD CD-CG CG-CB CB-CA" }
   };
 
+  public enum SecondaryKind { Coil, Helix, Sheet }
+
+  public sealed class SecondaryRegion
+  {
+    public SecondaryKind Kind;
+    public string Chain;
+    public int Start, End;
+    public char StartInsertion, EndInsertion;
+  }
+
+  public readonly List<SecondaryRegion> SecondaryRegions = new List<SecondaryRegion>();
+
+  public int GetSecondaryRegion(int atomIndex)
+  {
+    Atom atom = Atoms[atomIndex];
+    for (int i = 0; i < SecondaryRegions.Count; i++)
+    {
+      var region = SecondaryRegions[i];
+      if (atom.Chain != region.Chain) continue;
+      if (CompareResidue(atom.ResidueSequence, atom.InsertionCode, region.Start, region.StartInsertion) >= 0 &&
+          CompareResidue(atom.ResidueSequence, atom.InsertionCode, region.End, region.EndInsertion) <= 0) return i;
+    }
+    return -1;
+  }
+
+  public SecondaryKind GetSecondaryStructure(int atomIndex)
+  {
+    int region = GetSecondaryRegion(atomIndex);
+    return region < 0 ? SecondaryKind.Coil : SecondaryRegions[region].Kind;
+  }
+
+  private static int CompareResidue(int first, char firstInsertion, int second, char secondInsertion)
+  {
+    int order = first.CompareTo(second);
+    return order == 0 ? firstInsertion.CompareTo(secondInsertion) : order;
+  }
+
+  private void ReadSecondaryRegion(string line, bool helix, int lineNumber)
+  {
+    try
+    {
+      if (line.Length < 38) throw new FormatException("Incomplete annotation.");
+      string chain = Field(line, helix ? 19 : 21, 1);
+      string endChain = Field(line, helix ? 31 : 32, 1);
+      if (chain != endChain) throw new FormatException("Annotation spans different chains.");
+      var region = new SecondaryRegion {
+        Kind = helix ? SecondaryKind.Helix : SecondaryKind.Sheet, Chain = chain,
+        Start = Integer(Field(line, helix ? 21 : 22, 4), lineNumber),
+        End = Integer(Field(line, 33, 4), lineNumber),
+        StartInsertion = line[helix ? 25 : 26], EndInsertion = line[37]
+      };
+      if (CompareResidue(region.Start, region.StartInsertion, region.End, region.EndInsertion) > 0)
+        throw new FormatException("Reversed annotation range.");
+      SecondaryRegions.Add(region);
+    }
+    catch (FormatException exception)
+    {
+      Warnings.Add("Ignoring invalid secondary structure at line " + lineNumber + ": " + exception.Message);
+    }
+  }
+
   public static PdbStructure Parse(string text)
   {
     if (string.IsNullOrWhiteSpace(text)) throw new FormatException("Empty PDB file.");
@@ -65,6 +126,7 @@ public sealed class PdbStructure
       {
         lineNumber++;
         string record = Field(line, 0, 6).Trim();
+        if (record == "HELIX" || record == "SHEET") { result.ReadSecondaryRegion(line, record == "HELIX", lineNumber); continue; }
         if (record == "MODEL") { modelCount++; insideModel = true; acceptAtoms = modelCount == 1; continue; }
         if (record == "ENDMDL") { acceptAtoms = false; insideModel = false; continue; }
         if (record == "TER" && acceptAtoms) { segment++; continue; }
@@ -90,6 +152,7 @@ public sealed class PdbStructure
           Serial = Integer(Field(line, 6, 5), lineNumber), Name = rawName.Trim(),
           Element = element, Residue = residue, ResidueId = Field(line, 22, 5).Trim(),
           Chain = Field(line, 21, 1), Segment = segment,
+          ResidueSequence = Integer(Field(line, 22, 4), lineNumber), InsertionCode = line[26],
           Alternate = line[16], X = Number(Field(line, 30, 8), lineNumber),
           Y = Number(Field(line, 38, 8), lineNumber), Z = Number(Field(line, 46, 8), lineNumber),
           Occupancy = string.IsNullOrWhiteSpace(Field(line, 54, 6)) ? 1 : Number(Field(line, 54, 6), lineNumber)

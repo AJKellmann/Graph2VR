@@ -22,6 +22,18 @@ static class Program
   static void Reject(string text)
   { try { PdbStructure.Parse(text); } catch (FormatException) { checks++; return; } throw new Exception("Expected invalid PDB rejection"); }
 
+  static string Annotation(bool helix, string chain, int first, int last, char firstInsertion = ' ', char lastInsertion = ' ')
+  {
+    var line = new string(' ', 80).ToCharArray();
+    (helix ? "HELIX " : "SHEET ").CopyTo(0, line, 0, 6);
+    line[helix ? 19 : 21] = chain[0]; line[helix ? 31 : 32] = chain[0];
+    first.ToString(CultureInfo.InvariantCulture).PadLeft(4).CopyTo(0, line, helix ? 21 : 22, 4);
+    last.ToString(CultureInfo.InvariantCulture).PadLeft(4).CopyTo(0, line, 33, 4);
+    line[helix ? 25 : 26] = firstInsertion; line[37] = lastInsertion;
+    return new string(line);
+  }
+  static string WithInsertion(string atom, char code) => atom.Remove(26, 1).Insert(26, code.ToString());
+
   static void Main(string[] args)
   {
     CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
@@ -74,6 +86,32 @@ static class Program
       Atom(3, " N", "GLY", 2, 2.7f, element: "N", chain: "B"), Atom(4, " CA", "GLY", 2, 4.1f, chain: "B"));
     Check(anotherChain.GetBackboneSegments().Count == 2, "Backbone respects chain identity");
 
+    Check(gly.GetSecondaryStructure(1) == PdbStructure.SecondaryKind.Coil, "Unannotated residues remain coil");
+    var annotated = Parse(Annotation(true, "A", -1, 2), Annotation(false, "B", 1, 3),
+      Atom(1, " CA", "ALA", -2, 0), Atom(2, " CA", "ALA", -1, 5),
+      Atom(3, " CA", "ALA", 2, 10), Atom(4, " CA", "ALA", 3, 15),
+      Atom(5, " CA", "ALA", 2, 20, chain: "B"), Atom(6, " CA", "ALA", 2, 25, chain: "C"));
+    Check(annotated.GetSecondaryStructure(0) == PdbStructure.SecondaryKind.Coil &&
+      annotated.GetSecondaryStructure(3) == PdbStructure.SecondaryKind.Coil, "Secondary ranges exclude neighboring residues");
+    Check(annotated.GetSecondaryStructure(1) == PdbStructure.SecondaryKind.Helix &&
+      annotated.GetSecondaryStructure(2) == PdbStructure.SecondaryKind.Helix, "Helix endpoints inclusive, including negative numbering");
+    Check(annotated.GetSecondaryStructure(4) == PdbStructure.SecondaryKind.Sheet &&
+      annotated.GetSecondaryStructure(5) == PdbStructure.SecondaryKind.Coil, "Sheet annotation respects chain");
+    var insertions = Parse(Annotation(true, "A", 2, 2, 'A', 'B'),
+      Atom(1, " CA", "ALA", 2, 0), WithInsertion(Atom(2, " CA", "ALA", 2, 5), 'A'),
+      WithInsertion(Atom(3, " CA", "ALA", 2, 10), 'B'), WithInsertion(Atom(4, " CA", "ALA", 2, 15), 'C'));
+    Check(insertions.Atoms.Count == 4 && insertions.GetSecondaryStructure(0) == PdbStructure.SecondaryKind.Coil &&
+      insertions.GetSecondaryStructure(1) == PdbStructure.SecondaryKind.Helix &&
+      insertions.GetSecondaryStructure(2) == PdbStructure.SecondaryKind.Helix &&
+      insertions.GetSecondaryStructure(3) == PdbStructure.SecondaryKind.Coil, "Insertion codes bound secondary ranges");
+    var malformed = Parse("HELIX", Annotation(false, "A", 9, 1),
+      Annotation(true, "A", 1, 2).Remove(31, 1).Insert(31, "B"), Atom(1, " CA", "ALA", 1, 0));
+    Check(malformed.SecondaryRegions.Count == 0 && malformed.Warnings.Count == 3 && malformed.Atoms.Count == 1,
+      "Malformed, reversed and cross-chain annotations do not prevent atom import");
+    var adjacent = Parse(Annotation(true, "A", 1, 2), Annotation(true, "A", 3, 4),
+      Atom(1, " CA", "ALA", 2, 0), Atom(2, " CA", "ALA", 3, 5));
+    Check(adjacent.GetSecondaryRegion(0) != adjacent.GetSecondaryRegion(1), "Adjacent helices remain separate regions");
+
     Reject(""); Reject("ATOM      1");
     Reject(Atom(1, " CA", "ALA", 1, float.NaN));
     Reject(string.Join("\n", Atom(1, " CA", "ALA", 1, 0), Atom(1, " N", "ALA", 1, 1)));
@@ -86,6 +124,14 @@ static class Program
       Check(insulin.Atoms.Count > 100 && insulin.Bonds.Count > 100, "Real insulin structure parsed");
       Check(insulin.GetBackboneSegments().Count == 4, "Insulin contains four separate backbone chains" );
       Check(insulin.GetBackboneSegments().Sum(path => path.Count) == 102, "Insulin backbone has 102 residues" );
+      Check(insulin.SecondaryRegions.Count == 8, "Insulin contains six helices and two beta strands");
+      var trace = insulin.GetBackboneSegments().SelectMany(path => path).ToArray();
+      Check(trace.Count(i => insulin.GetSecondaryStructure(i) == PdbStructure.SecondaryKind.Helix) == 56,
+        "Insulin annotated helices cover 56 backbone residues");
+      Check(trace.Count(i => insulin.GetSecondaryStructure(i) == PdbStructure.SecondaryKind.Sheet) == 6,
+        "Insulin annotated beta strands cover six backbone residues");
+      Check(trace.Count(i => insulin.GetSecondaryStructure(i) == PdbStructure.SecondaryKind.Coil) == 40,
+        "Insulin unannotated backbone retains 40 coil residues");
       int disulfides = 0;
       foreach (string line in source.Split('\n').Where(l => l.StartsWith("SSBOND")))
       {
