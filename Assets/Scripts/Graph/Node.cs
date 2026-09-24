@@ -41,6 +41,7 @@ public class Node : MonoBehaviour
   private List<string> modelCandidates = new List<string>();
   private bool imageLoading, modelLoading;
   private Vector3 abstractLabelPosition;
+  private Quaternion abstractLabelRotation;
   public bool MediaEnabled => MediaDisplayOverride == 1 ||
     (MediaDisplayOverride == 0 && Settings.Instance.autoShowNodeMedia);
   public bool HasMedia => cachedImage != null || modelObject != null ||
@@ -163,6 +164,7 @@ public class Node : MonoBehaviour
   {
     textMesh = GetComponentInChildren<TMPro.TextMeshPro>(true);
     abstractLabelPosition = textMesh.transform.localPosition;
+    abstractLabelRotation = textMesh.transform.localRotation;
   }
 
   public void Start()
@@ -418,10 +420,9 @@ public class Node : MonoBehaviour
     {
       transform.rotation = cameraFacingRotation;
     }
-    else
-    {
-      textMesh.transform.rotation = cameraFacingRotation;
-    }
+    // Preserve the prefab's text-facing offset in every display mode. Model mode
+    // previously overwrote it, leaving the label back-facing after switching back.
+    textMesh.transform.rotation = cameraFacingRotation * abstractLabelRotation;
 
     if (isControllerGrabbed || isPointerHovered)
     {
