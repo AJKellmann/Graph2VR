@@ -134,7 +134,6 @@ namespace Dweiss
       autoShowNodeMedia = enabled;
       PlayerPrefs.SetInt("AutoShowNodeMedia", enabled ? 1 : 0);
       PlayerPrefs.Save();
-      foreach (Node node in FindObjectsOfType<Node>()) node.RefreshMediaDisplay();
     }
 
     new string name = "";

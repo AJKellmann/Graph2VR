@@ -35,15 +35,14 @@ public class Node : MonoBehaviour
   private float modelDisplaySize = -1f;
   private GameObject modelObject = null;
 
-  // 0 follows Settings, 1 explicitly shows media, 2 explicitly shows the abstract node.
+  // Capture the default once at creation. 1 shows media, 2 shows the abstract node.
   public int MediaDisplayOverride { get; private set; }
   private List<string> imageCandidates = new List<string>();
   private List<string> modelCandidates = new List<string>();
   private bool imageLoading, modelLoading;
   private Vector3 abstractLabelPosition;
   private Quaternion abstractLabelRotation;
-  public bool MediaEnabled => MediaDisplayOverride == 1 ||
-    (MediaDisplayOverride == 0 && Settings.Instance.autoShowNodeMedia);
+  public bool MediaEnabled => MediaDisplayOverride == 1;
   public bool HasMedia => cachedImage != null || modelObject != null ||
     imageCandidates.Count > 0 || modelCandidates.Count > 0;
   public List<string> GetImageCandidates() => new List<string>(imageCandidates);
@@ -51,7 +50,8 @@ public class Node : MonoBehaviour
 
   public void SetMediaDisplayOverride(int value)
   {
-    MediaDisplayOverride = value >= 0 && value <= 2 ? value : 0;
+    // Older saves use 0: retain the default captured when this node was created.
+    if (value == 1 || value == 2) MediaDisplayOverride = value;
     RefreshMediaDisplay();
   }
 
@@ -162,6 +162,7 @@ public class Node : MonoBehaviour
 
   public void Awake()
   {
+    MediaDisplayOverride = Settings.Instance.autoShowNodeMedia ? 1 : 2;
     textMesh = GetComponentInChildren<TMPro.TextMeshPro>(true);
     abstractLabelPosition = textMesh.transform.localPosition;
     abstractLabelRotation = textMesh.transform.localRotation;

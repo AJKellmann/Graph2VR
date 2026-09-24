@@ -410,7 +410,7 @@ public class MainMenu : BaseMenu
       });
     }
 
-    cm.AddButton("Auto-show images/models: " + (Settings.Instance.autoShowNodeMedia ? "on" : "off"), Color.yellow / 2, () =>
+    cm.AddButton("New nodes: images/models " + (Settings.Instance.autoShowNodeMedia ? "on" : "off"), Color.yellow / 2, () =>
     {
       Settings.Instance.SetAutoShowNodeMedia(!Settings.Instance.autoShowNodeMedia);
       RefreshMainMenuNextFrame();
