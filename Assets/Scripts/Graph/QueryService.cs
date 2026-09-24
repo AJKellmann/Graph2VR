@@ -326,10 +326,8 @@ public class QueryService : MonoBehaviour
     return triples;
   }
 
-  Action<List<string>> getGraphsOnSelectedServerCallback;
   public void GetGraphsOnSelectedServer(Action<List<string>> callback)
   {
-    getGraphsOnSelectedServerCallback = callback;
     string query = $@"
       SELECT DISTINCT ?graph
       WHERE {{ 
@@ -358,7 +356,7 @@ public class QueryService : MonoBehaviour
 
       UnityMainThreadDispatcher.Instance().Enqueue(() =>
       {
-        getGraphsOnSelectedServerCallback(graphNames);
+        callback(graphNames);
       });
     }, state: null);
   }

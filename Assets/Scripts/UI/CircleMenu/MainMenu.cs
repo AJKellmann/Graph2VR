@@ -66,7 +66,7 @@ public class MainMenu : BaseMenu
     // We are in a sub menu
     cm.AddButton(Icon("\uF064") + "Back", Color.blue / 2, () =>
     {
-      subMenu = "";
+      subMenu = subMenu == "SelectGraph" ? "Settings" : "";
       populateMenuState = PopulateMenuState.unloaded;
       cm.Close();
       PopulateMainMenu();
@@ -278,12 +278,19 @@ public class MainMenu : BaseMenu
 
   }
 
+  private int graphListRequestId;
+
   private void PopulateSelectGraphMenu()
   {
     if (populateMenuState == PopulateMenuState.unloaded)
     {
-      QueryService.Instance.GetGraphsOnSelectedServer(PopulateSelectGraphCallback);
       populateMenuState = PopulateMenuState.loading;
+      int requestId = ++graphListRequestId;
+      QueryService.Instance.GetGraphsOnSelectedServer(results =>
+      {
+        if (requestId != graphListRequestId || subMenu != "SelectGraph" || !cm.IsMenuOpen()) return;
+        PopulateSelectGraphCallback(results);
+      });
     }
 
     if (populateMenuState == PopulateMenuState.loaded)
@@ -300,51 +307,36 @@ public class MainMenu : BaseMenu
 
   private void PopulateSelectGraphCallback(List<string> results)
   {
-    graphsInSelectedDatabase = results;
+    graphsInSelectedDatabase = results ?? new List<string>();
     populateMenuState = PopulateMenuState.loaded;
     PopulateMainMenu();
   }
 
   private void DrawDelayedSelectGraphButtons()
   {
-    if (populateMenuState == PopulateMenuState.loaded)
-    {
-      cm.AddButton("No specific graph", warningColor, () =>
-      {
-        Settings.Instance.baseURI = "";
-        QueryService.Instance.SwitchEndpoint();
-        cm.Close();
-        PopulateMainMenu();
-      });
+    if (populateMenuState != PopulateMenuState.loaded) return;
+    cm.AddButton("No specific graph", string.IsNullOrEmpty(Settings.Instance.baseURI) ? Color.blue : warningColor,
+      () => SelectGraph(""));
+    foreach (string graphUri in graphsInSelectedDatabase)
+      cm.AddButton(graphUri, graphUri == Settings.Instance.baseURI ? Color.blue : grayColor,
+        () => SelectGraph(graphUri));
+  }
 
-      foreach (string graph in graphsInSelectedDatabase)
-      {
-        if (graph == Settings.Instance.baseURI) {
-          cm.AddButton(graph, Color.blue, () =>
-          {
-            PlayerPrefs.SetString("CustomGraphDatabase", graph);
-            string endpoint = Settings.Instance.sparqlEndpoint;
-            Settings.Instance.baseURI = graph;
-            Settings.Instance.sparqlEndpoint = endpoint;
-            QueryService.Instance.SwitchEndpoint();
-            cm.Close();
-            PopulateMainMenu();
-          });
-        }
-        else { 
-          cm.AddButton(graph, grayColor, () =>
-          {
-            PlayerPrefs.SetString("CustomGraphDatabase", graph);
-            string endpoint = Settings.Instance.sparqlEndpoint;
-            Settings.Instance.baseURI = graph;
-            Settings.Instance.sparqlEndpoint = endpoint;
-            QueryService.Instance.SwitchEndpoint();
-            cm.Close();
-            PopulateMainMenu();
-          });
-        }
-      }
-    }
+  private void SelectGraph(string graphUri)
+  {
+    PlayerPrefs.SetString("CustomGraphDatabase", graphUri);
+    Settings.Instance.baseURI = graphUri;
+    QueryService.Instance.SwitchEndpoint();
+    RefreshMainMenuNextFrame();
+  }
+
+  private void OpenGraphSelection()
+  {
+    graphListRequestId++;
+    graphsInSelectedDatabase = null;
+    populateMenuState = PopulateMenuState.unloaded;
+    subMenu = "SelectGraph";
+    RefreshMainMenuNextFrame();
   }
 
   private void PopulateSettingsMenu()
@@ -359,9 +351,7 @@ public class MainMenu : BaseMenu
 
     cm.AddButton(Icon("\uF1E0") + "Select graph on server", warningColor, () =>
     {
-      subMenu = "SelectGraph";
-      cm.Close();
-      PopulateMainMenu();
+      OpenGraphSelection();
     });
 
     cm.AddButton(Icon("\uF51E") + "Connect to custom server", Color.green / 2, () =>
@@ -384,6 +374,7 @@ public class MainMenu : BaseMenu
         Settings.Instance.databaseSupportsBifContains = false;
         Settings.Instance.searchOnKeypress = false;
         QueryService.Instance.SwitchEndpoint();
+        OpenGraphSelection();
       }, PlayerPrefs.GetString("CustomServer", ""), "Enter a custom server url...");
       Close();
     });
@@ -406,7 +397,7 @@ public class MainMenu : BaseMenu
         Settings.Instance.databaseSupportsBifContains = dataBaseSettings.databaseSupportsBifContains;
         Settings.Instance.searchOnKeypress = dataBaseSettings.searchOnKeypress;
         QueryService.Instance.SwitchEndpoint();
-        Close();
+        OpenGraphSelection();
       });
     }
 

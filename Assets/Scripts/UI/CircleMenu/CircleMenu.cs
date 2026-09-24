@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -253,7 +253,7 @@ public class CircleMenu : MonoBehaviour
       sliderLine = gameObject.GetComponent<LineRenderer>();
       if (sliderLine != null)
       {
-        Destroy(sliderLine);
+        sliderLine.enabled = false;
       }
     }
     isBuild = true;
@@ -272,7 +272,7 @@ public class CircleMenu : MonoBehaviour
     if (sliderLine != null)
     {
       sliderLine.enabled = false;
-      Destroy(sliderLine);
+      // Keep the renderer: Destroy is deferred and a same-frame rebuild reuses it.
     }
   }
 
