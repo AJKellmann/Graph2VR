@@ -521,7 +521,6 @@ public class Node : MonoBehaviour
       UnityWebRequest imageRequest = UnityWebRequestTexture.GetTexture(uri, false);
       yield return imageRequest.SendWebRequest();
       if (!MediaEnabled) { imageRequest.Dispose(); yield break; }
-      if (!MediaEnabled) { imageRequest.Dispose(); yield break; }
       if (imageRequest.result != UnityWebRequest.Result.Success)
       {
         imageRequest.Dispose();

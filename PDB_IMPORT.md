@@ -38,7 +38,7 @@ the exact structure. There is no chain-selection UI in this initial implementati
 - The first MODEL is shown. Alternate positions use the highest summed occupancy conformer
   per residue (lexicographic tie-break), plus shared blank positions. Waters are omitted.
 - No mmCIF, compressed PDB, crystallographic symmetry, biological assembly generation,
-  surfaces, secondary-structure ribbons, or trajectories yet. Unsupported chemistry is not silently distance-bonded.
+  surfaces or trajectories yet. Secondary-structure ribbons use explicit HELIX/SHEET annotations (see below). Unsupported chemistry is not silently distance-bonded.
 - Coordinates convert from PDB Angstroms to Unity orientation and existing model normalization.
 - Input is limited to 8 MiB of text and 10,000 displayed atoms. Downloading is still handled
   by the existing buffered model loader; this is not a network payload limit.
