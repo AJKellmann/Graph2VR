@@ -6,9 +6,9 @@ using VDS.RDF;
 
 public class ContextMenuHandler : MonoBehaviour
 {
-  private static int headerSize = 24;
-  private static int titleSize = 20;
-  private static int textSize = 18;
+  private static int headerSize = 30;
+  private static int titleSize = 25;
+  private static int textSize = 20;
 
   public GameObject ContentPanel;
   public GameObject labelPrefab;
