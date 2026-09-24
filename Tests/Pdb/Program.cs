@@ -57,6 +57,23 @@ static class Program
     Check(water.Atoms.Count == 1, "Water omitted");
     var hydrogen = Parse(Atom(1, " N", "ALA", 1, 0, element: "N"), Atom(2, " H", "ALA", 1, 1, element: "H"));
     Check(hydrogen.Bonds.Count == 1, "Present hydrogen attachment");
+    var backbone = Parse(Atom(1, " N", "ALA", 1, 0, element: "N"), Atom(2, " CA", "ALA", 1, 1.4f),
+      Atom(3, " C", "ALA", 1, 2.8f), Atom(4, " N", "GLY", 2, 4.1f, element: "N"), Atom(5, " CA", "GLY", 2, 5.5f));
+    Check(backbone.GetBackboneSegments().Count == 1 && backbone.GetBackboneSegments()[0].Count == 2, "Connected C-alpha trace");
+    var separated = Parse(Atom(1, " CA", "ALA", 1, 0), Atom(2, " C", "ALA", 1, 1.4f), "TER",
+      Atom(3, " N", "GLY", 2, 2.7f, element: "N"), Atom(4, " CA", "GLY", 2, 4.1f));
+    Check(separated.GetBackboneSegments().Count == 2, "Backbone respects TER");
+    var missingCa = Parse(Atom(1, " CA", "ALA", 1, 0), Atom(2, " C", "ALA", 1, 1.4f),
+      Atom(3, " N", "GLY", 2, 2.7f, element: "N"), Atom(4, " C", "GLY", 2, 5),
+      Atom(5, " N", "ALA", 3, 6.3f, element: "N"), Atom(6, " CA", "ALA", 3, 7.7f));
+    Check(missingCa.GetBackboneSegments().Count == 2, "Missing C-alpha breaks trace");
+    var caOnly = Parse(Atom(1, " CA", "ALA", 1, 0), Atom(2, " CA", "ALA", 2, 3.8f));
+    Check(caOnly.GetBackboneSegments().Count == 2, "No unverified connections in CA-only files");
+    Check(unknown.GetBackboneSegments().Count == 0, "Ligands do not become protein backbone");
+    var anotherChain = Parse(Atom(1, " CA", "ALA", 1, 0), Atom(2, " C", "ALA", 1, 1.4f),
+      Atom(3, " N", "GLY", 2, 2.7f, element: "N", chain: "B"), Atom(4, " CA", "GLY", 2, 4.1f, chain: "B"));
+    Check(anotherChain.GetBackboneSegments().Count == 2, "Backbone respects chain identity");
+
     Reject(""); Reject("ATOM      1");
     Reject(Atom(1, " CA", "ALA", 1, float.NaN));
     Reject(string.Join("\n", Atom(1, " CA", "ALA", 1, 0), Atom(1, " N", "ALA", 1, 1)));
@@ -67,6 +84,8 @@ static class Program
       string source = File.ReadAllText(fixture);
       var insulin = PdbStructure.Parse(source);
       Check(insulin.Atoms.Count > 100 && insulin.Bonds.Count > 100, "Real insulin structure parsed");
+      Check(insulin.GetBackboneSegments().Count == 4, "Insulin contains four separate backbone chains" );
+      Check(insulin.GetBackboneSegments().Sum(path => path.Count) == 102, "Insulin backbone has 102 residues" );
       int disulfides = 0;
       foreach (string line in source.Split('\n').Where(l => l.StartsWith("SSBOND")))
       {

@@ -178,6 +178,14 @@ public class NodeMenu : BaseMenu
       PopulateNode(input);
     });
 
+    if (node.HasPdbModel)
+    {
+      cm.AddButton("PDB: " + node.PdbDisplay + " (change)", defaultMenuColor, () =>
+      {
+        subMenu = "PdbRepresentation";
+        PopulateNode(node);
+      });
+    }
     if (node.HasMedia)
     {
       cm.AddButton(node.MediaEnabled ? "Show as abstract node" : "Show image/model", defaultMenuColor, () =>
@@ -263,6 +271,17 @@ public class NodeMenu : BaseMenu
       if (subMenu == "Outgoing")
       {
         PopulateOutgoingMenu();
+      }
+    }
+    if (subMenu == "PdbRepresentation")
+    {
+      foreach (PdbRepresentation representation in new[] { PdbRepresentation.Atoms, PdbRepresentation.Bonds, PdbRepresentation.Residues, PdbRepresentation.Chains })
+      {
+        cm.AddButton(representation.ToString(), node.PdbDisplay == representation ? Color.blue : defaultMenuColor, () =>
+        {
+          node.SetPdbRepresentation(representation);
+          PopulateNode(node);
+        });
       }
     }
     if (subMenu == "Node")

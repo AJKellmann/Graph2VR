@@ -90,6 +90,7 @@ namespace Dweiss
     public bool queryLoggingEnabled = false;
     public float playerHeight = 1.8f;
     public bool autoShowNodeMedia = true;
+    public PdbRepresentation pdbRepresentation = PdbRepresentation.Bonds;
     public float modelNodeSize = 0.75f;
     public int screenshotWidth = 7680;
     public int screenshotHeight = 4320;
@@ -125,8 +126,18 @@ namespace Dweiss
     {
       base.Awake ();
       SetupSingelton();
+      int savedPdbMode = PlayerPrefs.GetInt("PdbRepresentation", (int)pdbRepresentation);
+      pdbRepresentation = System.Enum.IsDefined(typeof(PdbRepresentation), savedPdbMode)
+        ? (PdbRepresentation)savedPdbMode : PdbRepresentation.Bonds;
       if (PlayerPrefs.HasKey("AutoShowNodeMedia"))
         autoShowNodeMedia = PlayerPrefs.GetInt("AutoShowNodeMedia") != 0;
+    }
+
+    public void CyclePdbRepresentation()
+    {
+      pdbRepresentation = (PdbRepresentation)(((int)pdbRepresentation + 1) % 4);
+      PlayerPrefs.SetInt("PdbRepresentation", (int)pdbRepresentation);
+      PlayerPrefs.Save();
     }
 
     public void SetAutoShowNodeMedia(bool enabled)

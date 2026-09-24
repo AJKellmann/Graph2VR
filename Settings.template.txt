@@ -20,6 +20,7 @@
     "queryLoggingEnabled": false,
     "playerHeight": 1.8,
     "autoShowNodeMedia": true,
+    "pdbRepresentation": 0,
     "modelNodeSize": 0.75,
     "screenshotWidth": 7680,
     "screenshotHeight": 4320,

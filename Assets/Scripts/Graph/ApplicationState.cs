@@ -128,6 +128,7 @@ public class ApplicationState
         imageWidth = texture.width;
         imageHeight = texture.height;
       }
+      pdbRepresentation = (int)node.PdbDisplay;
       mediaDisplayOverride = node.MediaDisplayOverride;
       imageCandidates = node.GetImageCandidates();
       modelCandidates = node.GetModelCandidates();
@@ -154,6 +155,7 @@ public class ApplicationState
     public byte[] image;
     public int imageWidth;
     public int imageHeight;
+    [System.Runtime.Serialization.OptionalField] public int pdbRepresentation;
     [System.Runtime.Serialization.OptionalField] public int mediaDisplayOverride;
     [System.Runtime.Serialization.OptionalField] public List<string> imageCandidates;
     [System.Runtime.Serialization.OptionalField] public List<string> modelCandidates;
@@ -422,6 +424,7 @@ public class ApplicationState
     }
     node.LockPosition = state.isLocked;
     node.cachedNodeLabel = state.cachedNodeLabel;
+    node.SetPdbRepresentation((PdbRepresentation)state.pdbRepresentation);
     node.SetMediaDisplayOverride(state.mediaDisplayOverride);
     if (state.image != null)
     {

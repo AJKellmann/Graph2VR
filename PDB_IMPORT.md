@@ -38,7 +38,7 @@ the exact structure. There is no chain-selection UI in this initial implementati
 - The first MODEL is shown. Alternate positions use the highest summed occupancy conformer
   per residue (lexicographic tie-break), plus shared blank positions. Waters are omitted.
 - No mmCIF, compressed PDB, crystallographic symmetry, biological assembly generation,
-  surfaces, ribbons, or trajectories yet. Unsupported chemistry is not silently distance-bonded.
+  surfaces, secondary-structure ribbons, or trajectories yet. Unsupported chemistry is not silently distance-bonded.
 - Coordinates convert from PDB Angstroms to Unity orientation and existing model normalization.
 - Input is limited to 8 MiB of text and 10,000 displayed atoms. Downloading is still handled
   by the existing buffered model loader; this is not a network payload limit.
@@ -86,3 +86,29 @@ Existing in-flight downloads may finish, but hidden nodes will not display the r
 Loaded media are deactivated and retained in memory for switching back. Models take display
 precedence over images if both exist. Visible 3D models intentionally hide their labels (also for stages). Image and abstract nodes keep labels; missing or
 empty RDF labels fall back to a readable URI component (including CUI query identifiers).
+
+## PDB representations
+
+The Settings button `New PDB nodes: ... (change)` cycles the default for nodes created
+afterwards. Bonds (0) is the initial default; Atoms (1), Residues (2), Chains (3) follow.
+The saved preference overrides `pdbRepresentation` in Settings.txt. Existing nodes stay
+unchanged. On a PDB node, `PDB: ... (change)` opens the four choices independently of
+the existing abstract/media switch. The selected representation is saved with the node;
+older saves use Bonds. OBJ/STL models have no PDB representation menu.
+
+- Atoms: element-colored atom balls without sticks.
+- Bonds: the original element-colored balls and sticks.
+- Residues: one ball at each standard amino acid's C-alpha, connected by backbone links,
+  colored by chain. Ligands, metals and residues lacking C-alpha are omitted.
+- Chains: smoothed Catmull-Rom backbone tubes colored by chain. This is a schematic
+  trace, not secondary-structure cartoons, molecular surfaces or atomic geometry.
+
+Backbone segments follow identified peptide bonds and respect chain IDs, TER and missing
+C-alpha atoms. C-alpha-only files do not have inferred peptide bonds, so their residues
+remain disconnected. Structures without standard C-alpha residues cannot use Residues
+or Chains; a warning is logged and an existing representation is retained.
+
+Changing representation reuses parsed coordinates without another download, replaces
+the generated meshes/materials, and retains coordinate scale and center. The PDB file
+remains a single Graph2VR layout node. Mesh generation is synchronous and may briefly
+pause on large structures. Verify all four modes visually and on Quest before release.

@@ -124,6 +124,41 @@ public sealed class PdbStructure
     return result;
   }
 
+  // C-alpha paths follow actual peptide bonds, never just residue numbering or proximity.
+  public List<List<int>> GetBackboneSegments()
+  {
+    var residues = new Dictionary<string, Dictionary<string, int>>();
+    var order = new List<string>();
+    for (int i = 0; i < Atoms.Count; i++)
+    {
+      Atom atom = Atoms[i];
+      if (!SideChains.ContainsKey(atom.Residue)) continue;
+      if (!residues.TryGetValue(atom.ResidueKey, out var group))
+      { group = new Dictionary<string, int>(); residues.Add(atom.ResidueKey, group); order.Add(atom.ResidueKey); }
+      group[atom.Name] = i;
+    }
+    var bonded = new HashSet<long>();
+    foreach (Bond bond in Bonds) bonded.Add(((long)Math.Min(bond.First, bond.Second) << 32) | (uint)Math.Max(bond.First, bond.Second));
+    var paths = new List<List<int>>();
+    Dictionary<string, int> previous = null;
+    List<int> path = null;
+    foreach (string key in order)
+    {
+      var group = residues[key];
+      if (!group.TryGetValue("CA", out int ca)) { previous = null; continue; }
+      bool connected = false;
+      if (previous != null && previous.TryGetValue("C", out int c) && group.TryGetValue("N", out int n))
+      {
+        connected = Atoms[c].Chain == Atoms[n].Chain && Atoms[c].Segment == Atoms[n].Segment &&
+          bonded.Contains(((long)Math.Min(c, n) << 32) | (uint)Math.Max(c, n));
+      }
+      if (!connected) { path = new List<int>(); paths.Add(path); }
+      path.Add(ca);
+      previous = group;
+    }
+    return paths;
+  }
+
   private void BuildBonds(List<Tuple<int, int>> connections)
   {
     var serials = new Dictionary<int, int>();

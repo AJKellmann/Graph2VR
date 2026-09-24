@@ -35,6 +35,35 @@ public class Node : MonoBehaviour
   private float modelDisplaySize = -1f;
   private GameObject modelObject = null;
 
+  private PdbStructure cachedPdbStructure;
+  public PdbRepresentation PdbDisplay { get; private set; }
+  public bool HasPdbModel => (modelObject != null && modelObject.GetComponent<RuntimePdbResources>() != null) ||
+    modelCandidates.Exists(RuntimePdbLoader.CanLoad);
+
+  public void SetPdbRepresentation(PdbRepresentation representation)
+  {
+    if (!Enum.IsDefined(typeof(PdbRepresentation), representation)) representation = PdbRepresentation.Bonds;
+    if (PdbDisplay == representation) return;
+    var resources = modelObject != null ? modelObject.GetComponent<RuntimePdbResources>() : null;
+    PdbStructure structure = resources != null ? resources.Structure : cachedPdbStructure;
+    if (structure != null)
+    {
+      if (!RuntimePdbLoader.TryCreateGameObject(structure, "NodeModel", GetComponent<Renderer>().material,
+        representation, out GameObject replacement)) return;
+      // Preserve the molecular coordinate scale and centre across representations.
+      bool hadModel = modelObject != null;
+      Vector3 scale = hadModel ? modelObject.transform.localScale : Vector3.one;
+      Vector3 position = hadModel ? modelObject.transform.localPosition : Vector3.zero;
+      SetModelObject(replacement, cachedModelUri);
+      if (hadModel)
+      {
+        replacement.transform.localScale = scale;
+        replacement.transform.localPosition = position;
+      }
+    }
+    PdbDisplay = representation;
+  }
+
   // Capture the default once at creation. 1 shows media, 2 shows the abstract node.
   public int MediaDisplayOverride { get; private set; }
   private List<string> imageCandidates = new List<string>();
@@ -163,6 +192,8 @@ public class Node : MonoBehaviour
   public void Awake()
   {
     MediaDisplayOverride = Settings.Instance.autoShowNodeMedia ? 1 : 2;
+    PdbDisplay = Enum.IsDefined(typeof(PdbRepresentation), Settings.Instance.pdbRepresentation)
+      ? Settings.Instance.pdbRepresentation : PdbRepresentation.Bonds;
     textMesh = GetComponentInChildren<TMPro.TextMeshPro>(true);
     abstractLabelPosition = textMesh.transform.localPosition;
     abstractLabelRotation = textMesh.transform.localRotation;
@@ -590,7 +621,12 @@ public class Node : MonoBehaviour
       }
       else if (canLoadPdb)
       {
-        modelLoaded = RuntimePdbLoader.TryCreateGameObject(modelRequest.downloadHandler.text, "NodeModel", material, out loadedModel);
+        try
+        {
+          cachedPdbStructure = PdbStructure.Parse(modelRequest.downloadHandler.text);
+          modelLoaded = RuntimePdbLoader.TryCreateGameObject(cachedPdbStructure, "NodeModel", material, PdbDisplay, out loadedModel);
+        }
+        catch (FormatException exception) { Debug.LogWarning("PDB parse failed: " + exception.Message); }
         Destroy(material); // PDB renderer owns its per-element copies.
       }
       else if (canLoadStl)
@@ -728,6 +764,7 @@ public class Node : MonoBehaviour
   {
     if (modelObject != null)
     {
+      modelObject.SetActive(false);
       Destroy(modelObject);
     }
 

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum PdbRepresentation { Bonds = 0, Atoms = 1, Residues = 2, Chains = 3 }
+
 public static class RuntimePdbLoader
 {
   public static bool CanLoad(string uri)
@@ -10,14 +12,23 @@ public static class RuntimePdbLoader
     return uri.Split('?')[0].Split('#')[0].EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
   }
 
-  public static bool TryCreateGameObject(string text, string name, Material fallback, out GameObject model)
+  public static bool TryCreateGameObject(string text, string name, Material fallback, out GameObject model,
+    PdbRepresentation representation = PdbRepresentation.Bonds)
+  {
+    model = null;
+    try { return TryCreateGameObject(PdbStructure.Parse(text), name, fallback, representation, out model); }
+    catch (Exception exception) { Debug.LogWarning("PDB parse failed: " + exception.Message); return false; }
+  }
+
+  public static bool TryCreateGameObject(PdbStructure structure, string name, Material fallback,
+    PdbRepresentation representation, out GameObject model)
   {
     model = null;
     try
     {
-      PdbStructure structure = PdbStructure.Parse(text);
       model = new GameObject(name);
       var resources = model.AddComponent<RuntimePdbResources>();
+      resources.Structure = structure;
       var batches = new Dictionary<string, Batch>();
       Vector3 center = Vector3.zero;
       foreach (var atom in structure.Atoms) center += new Vector3(atom.X, atom.Y, atom.Z);
@@ -29,17 +40,21 @@ public static class RuntimePdbLoader
         // Negate Z to preserve the molecular handedness in Unity's coordinate convention.
         Vector3 p = new Vector3(atom.X - center.x, atom.Y - center.y, -(atom.Z - center.z));
         positions[i] = p;
-        GetBatch(atom.Element, batches, model, fallback, resources).Sphere(p, Radius(atom.Element));
+        if (representation == PdbRepresentation.Atoms || representation == PdbRepresentation.Bonds)
+          GetBatch(atom.Element, batches, model, fallback, resources).Sphere(p, Radius(atom.Element));
       }
+      if (representation == PdbRepresentation.Bonds)
       foreach (var bond in structure.Bonds)
       {
         Vector3 a = positions[bond.First], b = positions[bond.Second], midpoint = (a + b) * 0.5f;
         GetBatch(structure.Atoms[bond.First].Element, batches, model, fallback, resources).Cylinder(a, midpoint);
         GetBatch(structure.Atoms[bond.Second].Element, batches, model, fallback, resources).Cylinder(midpoint, b);
       }
+      if (representation == PdbRepresentation.Residues || representation == PdbRepresentation.Chains)
+        DrawBackbone(structure, positions, representation, batches, model, fallback, resources);
       foreach (Batch batch in batches.Values) batch.Flush();
       foreach (string warning in structure.Warnings) Debug.LogWarning("PDB: " + warning);
-      Debug.Log($"PDB loaded: {structure.Atoms.Count} atoms, {structure.Bonds.Count} bonds (ball-and-stick).");
+      Debug.Log($"PDB loaded: {structure.Atoms.Count} atoms, {structure.Bonds.Count} bonds ({representation}).");
       return true;
     }
     catch (Exception exception)
@@ -48,6 +63,45 @@ public static class RuntimePdbLoader
       model = null;
       Debug.LogWarning("PDB import failed: " + exception.Message);
       return false;
+    }
+  }
+
+  private static void DrawBackbone(PdbStructure structure, Vector3[] positions, PdbRepresentation representation,
+    Dictionary<string, Batch> batches, GameObject model, Material fallback, RuntimePdbResources resources)
+  {
+    List<List<int>> paths = structure.GetBackboneSegments();
+    if (paths.Count == 0) throw new FormatException("No standard protein residues with C-alpha atoms for this representation.");
+    var chains = new Dictionary<string, int>();
+    foreach (var atom in structure.Atoms)
+      if (!chains.ContainsKey(atom.Chain)) chains.Add(atom.Chain, chains.Count);
+    foreach (var path in paths)
+    {
+      string chain = structure.Atoms[path[0]].Chain;
+      string key = "Chain " + chain;
+      Batch batch = GetBatch(key, batches, model, fallback, resources);
+      batch.SetColor(Color.HSVToRGB((chains[chain] * 0.618034f) % 1f, 0.65f, 0.95f));
+      if (representation == PdbRepresentation.Residues)
+      {
+        foreach (int index in path) batch.Sphere(positions[index], 0.65f);
+        for (int i = 1; i < path.Count; i++) batch.Cylinder(positions[path[i - 1]], positions[path[i]], 0.18f);
+        continue;
+      }
+      Vector3 last = positions[path[0]];
+      batch.Sphere(last, 0.32f);
+      for (int i = 0; i < path.Count - 1; i++)
+      {
+        Vector3 p0 = positions[path[Math.Max(0, i - 1)]], p1 = positions[path[i]];
+        Vector3 p2 = positions[path[i + 1]], p3 = positions[path[Math.Min(path.Count - 1, i + 2)]];
+        for (int step = 1; step <= 6; step++)
+        {
+          float t = step / 6f;
+          Vector3 next = 0.5f * ((2f * p1) + (-p0 + p2) * t +
+            (2f * p0 - 5f * p1 + 4f * p2 - p3) * t * t + (-p0 + 3f * p1 - 3f * p2 + p3) * t * t * t);
+          batch.Cylinder(last, next, 0.32f);
+          batch.Sphere(next, 0.32f);
+          last = next;
+        }
+      }
     }
   }
 
@@ -128,7 +182,9 @@ public static class RuntimePdbLoader
         }
     }
 
-    public void Cylinder(Vector3 from, Vector3 to)
+    public void SetColor(Color color) { material.color = color; }
+
+    public void Cylinder(Vector3 from, Vector3 to, float radius = 0.12f)
     {
       Vector3 axis = to - from;
       if (axis.sqrMagnitude < 0.000001f) return;
@@ -141,8 +197,8 @@ public static class RuntimePdbLoader
       {
         float angle = 2 * Mathf.PI * side / Sides;
         Vector3 normal = Mathf.Cos(angle) * u + Mathf.Sin(angle) * v;
-        vertices.Add(from + normal * 0.12f); normals.Add(normal);
-        vertices.Add(to + normal * 0.12f); normals.Add(normal);
+        vertices.Add(from + normal * radius); normals.Add(normal);
+        vertices.Add(to + normal * radius); normals.Add(normal);
       }
       for (int side = 0; side < Sides; side++)
       {
