@@ -134,6 +134,7 @@ public class ApplicationState
       modelCandidates = node.GetModelCandidates();
       modelUri = node.GetModelUri();
       modelDisplaySize = node.GetCurrentModelDisplaySize();
+      modelLocalTransform = node.GetModelLocalTransform();
     }
 
     public float positionX;
@@ -159,6 +160,7 @@ public class ApplicationState
     [System.Runtime.Serialization.OptionalField] public int mediaDisplayOverride;
     [System.Runtime.Serialization.OptionalField] public List<string> imageCandidates;
     [System.Runtime.Serialization.OptionalField] public List<string> modelCandidates;
+    [System.Runtime.Serialization.OptionalField] public float[] modelLocalTransform;
     public string modelUri = "";
     public float modelDisplaySize = -1f;
     public string nodeOfExternalGraphGUID = "";
@@ -424,6 +426,7 @@ public class ApplicationState
     }
     node.LockPosition = state.isLocked;
     node.cachedNodeLabel = state.cachedNodeLabel;
+    node.RestoreModelLocalTransform(state.modelLocalTransform);
     node.SetPdbRepresentation((PdbRepresentation)state.pdbRepresentation);
     node.SetMediaDisplayOverride(state.mediaDisplayOverride);
     if (state.image != null)

@@ -772,6 +772,7 @@ public class Node : MonoBehaviour
     modelObject.transform.SetParent(transform, false);
     modelObject.transform.localRotation = Quaternion.identity;
     NormalizeModelObject(modelObject);
+    ApplyRestoredModelTransform();
 
     Transform border = transform.Find("Border");
     if (border != null)
@@ -798,6 +799,35 @@ public class Node : MonoBehaviour
     loadedModel.transform.localScale = Vector3.one * scale;
     loadedModel.transform.localPosition = -localCenter * scale;
   }
+
+  // Keep the model's local normalization independently of the node/graph transform.
+  // Retained for lazy loading when a saved node is currently abstract.
+  private float[] restoredModelTransform;
+
+  public float[] GetModelLocalTransform()
+  {
+    if (modelObject == null) return restoredModelTransform == null ? null : (float[])restoredModelTransform.Clone();
+    Vector3 scale = modelObject.transform.localScale, position = modelObject.transform.localPosition;
+    return new[] { scale.x, scale.y, scale.z, position.x, position.y, position.z };
+  }
+
+  public void RestoreModelLocalTransform(float[] values)
+  {
+    if (values == null || values.Length != 6) return;
+    foreach (float value in values) if (float.IsNaN(value) || float.IsInfinity(value)) return;
+    if (values[0] <= 0 || values[1] <= 0 || values[2] <= 0) return;
+    restoredModelTransform = (float[])values.Clone();
+    ApplyRestoredModelTransform();
+  }
+
+  private void ApplyRestoredModelTransform()
+  {
+    if (modelObject == null || restoredModelTransform == null) return;
+    modelObject.transform.localScale = new Vector3(restoredModelTransform[0], restoredModelTransform[1], restoredModelTransform[2]);
+    modelObject.transform.localPosition = new Vector3(restoredModelTransform[3], restoredModelTransform[4], restoredModelTransform[5]);
+    restoredModelTransform = null;
+  }
+
 
   public string GetModelUri()
   {

@@ -118,3 +118,20 @@ Changing representation reuses parsed coordinates without another download, repl
 the generated meshes/materials, and retains coordinate scale and center. The PDB file
 remains a single Graph2VR layout node. Mesh generation is synchronous and may briefly
 pause on large structures. Verify all five modes visually and on Quest before release.
+
+## Saving and loading
+
+Quick save and application-state `.g2v` saves retain each node's PDB representation,
+media visibility, candidate URLs, node transform and exact model-local scale/offset.
+The latter also survives saving an abstract node before its model has loaded again.
+Older saves without the optional transform use their existing model-size fallback.
+PDB/OBJ/STL file contents are not embedded: their URLs must remain accessible when
+models are loaded again. Downloaded images are embedded as PNG as before.
+N-Triples exports contain RDF triples only, not presentation or local preferences.
+The defaults for newly created nodes are persisted separately in local PlayerPrefs.
+`Tests/SaveStateChecks.cs` tests BinaryFormatter round trips against the actual compiled
+`ApplicationState.NodeState` type, including omitted optional fields for legacy saves.
+Compile it as a standalone console executable with Unity's C# compiler and mscorlib,
+then run with Unity's bundled Mono, passing the compiled project DLL and the
+`Editor/Data/Managed/UnityEngine` directory as its two arguments. It uses only in-memory
+streams and does not read or overwrite user saves. It does not exercise Unity rendering.
